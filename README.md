@@ -1,2 +1,2 @@
-# chenfangshuo.github.io / forsure.live
+# chenfangshuo.github.io
 My personal website
