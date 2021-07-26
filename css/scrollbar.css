@@ -4,7 +4,7 @@
     width: 4px;  
     height: 4px;  
 /*    color: transparent;           */
-/*    background-color: #181C27;    */
+    background-color: #181C27;    
 }  
  
 /*定义滚动条轨道 内阴影+圆角*/  
@@ -14,7 +14,7 @@
     -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.3);  
     border-radius: 10px;  
 /*    color: transparent;           */
-    color: #181C27;
+    background-color: #181C27;
 }  
   
 /*定义滑块 内阴影+圆角*/  
