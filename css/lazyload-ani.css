@@ -1,5 +1,8 @@
-img:not(.lazyload_loaded) {
-    
+img.lazyload {
+    -webkit-filter: blur(10px);
+    filter: blur(10px);
+    opacity: 0;
+}
     img.lazyload_loaded {
        -webkit-transition: filter 0.5s ease 0.1s, opacity 0.6s ease 0s;
            -moz-transition: filter 0.5s ease 0.1s, opacity 0.6s ease 0s;
@@ -9,12 +12,12 @@ img:not(.lazyload_loaded) {
 }
 img:not(.loaded):not(.loading) {
     background-color: #252D38;
-    -webkit-filter: blur(10px);
-    filter: blur(10px);
-    opacity: 0;
-}
 }
 img.fancybox-image {
+    filter: blur(0);
+    opacity: 1;
+}
+img.img-fluid {
     filter: blur(0);
     opacity: 1;
 }
