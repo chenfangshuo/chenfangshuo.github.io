@@ -5,3 +5,8 @@ img.lazyload:not(.loaded) {
     -webkit-filter: blur(8px);
     filter: blur(8px);
 }
+img.lazyload_loaded {
+    -webkit-filter: blur(8px);
+    filter: blur(8px);
+    transition: filter 0.375s ease 0s;
+}
