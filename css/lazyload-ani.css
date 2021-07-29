@@ -1,16 +1,12 @@
-
-/* Image with 'data' attribute is hidden */
 img:not(.lazyload_loaded) {
-    /* we set the opacity to 0 */
-    -webkit-filter: blur(8px);
-    filter: blur(8px);
-    }
-    /* Image without 'data' attribute is (or becomes) visible */
+    -webkit-filter: blur(10px);
+    filter: blur(10px);
+    opacity: 0;
+}
     img.lazyload_loaded {
-    /* prepare the future animation */
-       -webkit-transition: filter 0.4s ease 0.2s;
-           -moz-transition: filter 0.4s ease 0.2s;
-                     transition: filter 0.4s ease 0.2s;
-    /* we set the opacity to 1 to do the magic */
+       -webkit-transition: filter 0.4s ease 0.2s, opacity 0.5s ease 0s;
+           -moz-transition: filter 0.4s ease 0.2s, opacity 0.5s ease 0s;
+                     transition: filter 0.4s ease 0.2s, opacity 0.5s ease 0s;
     filter: blur(0);
-    }
+    opacity: 1;
+}
