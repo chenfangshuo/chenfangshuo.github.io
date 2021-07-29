@@ -1,4 +1,4 @@
-img.lazyload {
+img.lazyload_loaded {
     transition: filter 0.375s ease 0s;
 }
 img.lazyload:not(.loaded) {
