@@ -1,12 +1,16 @@
-img.lazyload_loaded {
-    transition: filter 0.375s ease 0s;
-}
-img.lazyload:not(.loaded) {
+
+/* Image with 'data' attribute is hidden */
+img:not(.lazyload_loaded) {
+    /* we set the opacity to 0 */
     -webkit-filter: blur(8px);
     filter: blur(8px);
-}
-img.lazyload_loaded {
-    -webkit-filter: blur(8px);
-    filter: blur(8px);
-    transition: filter 0.375s ease 0s;
-}
+    }
+    /* Image without 'data' attribute is (or becomes) visible */
+    img.lazyload_loaded {
+    /* prepare the future animation */
+       -webkit-transition: filter 0.4s ease 0.2s;
+           -moz-transition: filter 0.4s ease 0.2s;
+                     transition: filter 0.4s ease 0.2s;
+    /* we set the opacity to 1 to do the magic */
+    filter: blur(0);
+    }
