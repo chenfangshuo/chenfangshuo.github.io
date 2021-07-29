@@ -13,11 +13,3 @@ img.lazyload {
 img:not(.loaded):not(.loading) {
     background-color: #252D38;
 }
-img.fancybox-image {
-    filter: blur(0);
-    opacity: 1;
-}
-img.img-fluid {
-    filter: blur(0);
-    opacity: 1;
-}
