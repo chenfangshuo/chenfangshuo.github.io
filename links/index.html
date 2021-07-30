@@ -80,7 +80,7 @@
             <li class="nav-item">
               <a class="nav-link" href="/about/">
                 <i class="iconfont icon-user-fill"></i>
-                
+                 
               </a>
             </li>
           
@@ -92,7 +92,7 @@
             <li class="nav-item">
               <a class="nav-link" href="/links/">
                 <i class="iconfont icon-link-fill"></i>
-                
+                 
               </a>
             </li>
           
@@ -146,8 +146,110 @@
 
 <div class="row links">
   
+    
+    <div class="card col-lg-4 col-md-6 col-sm-12">
+      <a href="https://hexo.fluid-dev.com/" class="card-body hover-with-bg" target="_blank" rel="noopener">
+        <div class="card-content">
+          
+            <div class="link-avatar my-auto">
+              <img src="/img/favicon.png" alt="Fluid Blog"
+                   onerror="this.onerror=null; this.src=this.srcset='/img/avatar.png'"/>
+            </div>
+          
+          <div class="link-text">
+            <div class="link-title">Fluid Blog</div>
+            <div class="link-intro">主题博客</div>
+          </div>
+        </div>
+      </a>
+    </div>
+  
+    
+    <div class="card col-lg-4 col-md-6 col-sm-12">
+      <a href="https://hexo.fluid-dev.com/docs/" class="card-body hover-with-bg" target="_blank" rel="noopener">
+        <div class="card-content">
+          
+            <div class="link-avatar my-auto">
+              <img src="/img/favicon.png" alt="Fluid Docs"
+                   onerror="this.onerror=null; this.src=this.srcset='/img/avatar.png'"/>
+            </div>
+          
+          <div class="link-text">
+            <div class="link-title">Fluid Docs</div>
+            <div class="link-intro">主题使用指南</div>
+          </div>
+        </div>
+      </a>
+    </div>
+  
+    
+    <div class="card col-lg-4 col-md-6 col-sm-12">
+      <a href="https://github.com/fluid-dev/hexo-theme-fluid" class="card-body hover-with-bg" target="_blank" rel="noopener">
+        <div class="card-content">
+          
+            <div class="link-avatar my-auto">
+              <img src="/img/favicon.png" alt="Fluid Repo"
+                   onerror="this.onerror=null; this.src=this.srcset='/img/avatar.png'"/>
+            </div>
+          
+          <div class="link-text">
+            <div class="link-title">Fluid Repo</div>
+            <div class="link-intro">主题 GitHub 仓库</div>
+          </div>
+        </div>
+      </a>
+    </div>
+  
 </div>
 
+
+  <!-- Custom -->
+  <div class="custom mx-auto">
+    <hr><p>在下方留言申请加入我的友链，按如下格式提供信息：</p><ul><li>博客名：ForSure's Blog </li><li>简介：爱折腾的小白</li><li>链接：https://forsure.live</li><li>图片：https://cdn.jsdelivr.net/gh/chenfangshuo/Img@main/Til%20the%20End.jpg</li></ul>
+  </div>
+
+
+
+  <!-- Comments -->
+  <article class="comments" id="comments">
+    
+    
+  <div id="twikoo"></div>
+  <script type="text/javascript">
+    Fluid.utils.waitElementVisible('twikoo', function() {
+      Fluid.utils.createScript('https://cdn.jsdelivr.net/npm/twikoo@1.4.1/dist/twikoo.all.min.js', function () {
+        twikoo.init({ envId: 'https://twikoo-8tb47kk47-chenfangshuo.vercel.app/' })
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+  </article>
+
+
+<script>
+  'use strict'
+  
+  function query(selector) {
+      return Array.from(document.querySelectorAll(selector));
+  }
+      
+  var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+              var img = entry.target;
+              img.className += '_loaded'
+              img.srcset = img.getAttribute('data-srcset');
+              io.unobserve(img);
+          }
+      });
+  });
+      
+  query('img.lazyload').forEach(function (item) {
+      io.observe(item);
+  });
+    </script>
               </div>
             </div>
           </div>
