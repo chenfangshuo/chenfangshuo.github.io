@@ -1,3 +1,6 @@
 .tk-footer{
     display: none;
 }
+.twikoo .tk-submit .el-textarea__inner {
+    min-height: 210px !important;
+}
