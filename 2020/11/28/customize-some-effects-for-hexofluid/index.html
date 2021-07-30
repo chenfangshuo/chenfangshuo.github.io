@@ -333,30 +333,15 @@ hexo d</code></pre></div>
               <article class="comments" id="comments">
                 
                 
-  <div id="vcomments"></div>
+  <div id="twikoo"></div>
   <script type="text/javascript">
-    Fluid.utils.waitElementVisible('vcomments', function() {
-      Fluid.utils.createScript('https://cdn.jsdelivr.net/npm/valine@1.4.14/dist/Valine.min.js', function () {
-        new Valine({
-          el: "#vcomments",
-          app_id: "XlYEU5tBmorag6cYFtiQTeJV-gzGzoHsz",
-          app_key: "HhRtNyRKf9IlB2HE4oPyd6OK",
-          placeholder: "说点什么",
-          path: window.location.pathname,
-          avatar: "retro",
-          meta: ["nick","mail","link"],
-          pageSize: "10",
-          lang: "zh-CN",
-          highlight: false,
-          recordIP: false,
-          serverURLs: "https://xlyeu5tb.lc-cn-n1-shared.com",
-        });
+    Fluid.utils.waitElementVisible('twikoo', function() {
+      Fluid.utils.createScript('https://cdn.jsdelivr.net/npm/twikoo@1.4.1/dist/twikoo.all.min.js', function () {
+        twikoo.init({ envId: 'https://twikoo-8tb47kk47-chenfangshuo.vercel.app/' })
       });
     });
   </script>
-  <noscript>Please enable JavaScript to view the
-    <a target="_blank" href="https://valine.js.org" rel="nofollow noopener noopener">comments powered by Valine.</a>
-  </noscript>
+  <noscript>Please enable JavaScript to view the comments</noscript>
 
 
               </article>
