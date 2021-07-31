@@ -166,7 +166,7 @@
     
     <span class="post-meta mr-2">
       <i class="iconfont icon-chart"></i>
-      934 字
+      1.1k 字
     </span>
   
 
@@ -176,7 +176,7 @@
       <i class="iconfont icon-clock-fill"></i>
       
       
-      12
+      14
        分钟
     </span>
   
@@ -333,6 +333,27 @@ hexo d</code></pre></div>
 <span class="token selector">.twikoo .tk-submit .el-textarea__inner:focus</span> <span class="token punctuation">&#123;</span>
     <span class="token property">background-position-y</span><span class="token punctuation">:</span> 240px <span class="token important">!important</span><span class="token punctuation">;</span>             <span class="token comment">/*自定义点击时的位置*/</span>
 <span class="token punctuation">&#125;</span></code></pre></div>
+
+<p>后来偶然看到Chrome的F12开发者工具里能调贝塞尔曲线，好像发现了新大陆</p>
+<p><img src="https://cdn.jsdelivr.net/gh/chenfangshuo/Img@main/20210731170509.png" alt="Chrome调整贝塞尔曲线" class="lazyload" rcset="/img/loading2.jpg" data-srcset="https://cdn.jsdelivr.net/gh/chenfangshuo/Img@main/20210731170509.png"></p>
+<p>于是稍微修改了一下代码，有了下面的效果</p>
+<p> class="lazyload" rcset="/img/loading2.jpg" data-srcset="https://i.imgur.com/F3CbQNG.gif"<img src="https://i.imgur.com/F3CbQNG.gif"></p>
+<p>总的代码如下:</p>
+<div class="code-wrapper"><pre class="language-css" data-language="css"><code class="language-css"><span class="token selector">.tk-footer</span><span class="token punctuation">&#123;</span>
+    <span class="token property">display</span><span class="token punctuation">:</span> none<span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+<span class="token selector">.twikoo .tk-submit .el-textarea__inner</span> <span class="token punctuation">&#123;</span>
+    <span class="token property">min-height</span><span class="token punctuation">:</span> 210px <span class="token important">!important</span><span class="token punctuation">;</span>
+    <span class="token property">background-position</span><span class="token punctuation">:</span> right 2.5% bottom 0 <span class="token important">!important</span><span class="token punctuation">;</span>
+    <span class="token property">background-size</span><span class="token punctuation">:</span> 50px 56px <span class="token important">!important</span><span class="token punctuation">;</span>
+    <span class="token property">transition</span><span class="token punctuation">:</span> background-size 0.3s <span class="token function">cubic-bezier</span><span class="token punctuation">(</span>0.42<span class="token punctuation">,</span> 0<span class="token punctuation">,</span> 0.76<span class="token punctuation">,</span> 1.02<span class="token punctuation">)</span> 0s<span class="token punctuation">,</span> background-position-y 0.5s <span class="token function">cubic-bezier</span><span class="token punctuation">(</span>0.42<span class="token punctuation">,</span> 0<span class="token punctuation">,</span> 0.2<span class="token punctuation">,</span> 1.21<span class="token punctuation">)</span> 0s <span class="token important">!important</span><span class="token punctuation">;</span>
+
+<span class="token punctuation">&#125;</span>
+<span class="token selector">.twikoo .tk-submit .el-textarea__inner:focus</span> <span class="token punctuation">&#123;</span>
+    <span class="token property">background-position-y</span><span class="token punctuation">:</span> 240px <span class="token important">!important</span><span class="token punctuation">;</span>
+    <span class="token property">background-size</span><span class="token punctuation">:</span> 10px 56px <span class="token important">!important</span><span class="token punctuation">;</span>
+<span class="token punctuation">&#125;</span>
+</code></pre></div>
 
 
 
