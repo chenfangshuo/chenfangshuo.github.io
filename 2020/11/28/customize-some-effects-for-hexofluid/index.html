@@ -234,16 +234,14 @@ hexo d</code></pre></div>
 <li>在<code>博客目录\themes\fluid\source\css</code>中新建<code>scrollbar.css</code></li>
 </ol>
 <div class="code-wrapper"><pre class="language-css" data-language="css"><code class="language-css"><span class="token comment">/*定义滚动条高宽及背景 高宽分别对应横竖滚动条的尺寸*/</span>  
-<span class="token selector">::-webkit-scrollbar</span>
-<span class="token punctuation">&#123;</span>  
+<span class="token selector">::-webkit-scrollbar</span> <span class="token punctuation">&#123;</span>  
     <span class="token property">width</span><span class="token punctuation">:</span> 4px<span class="token punctuation">;</span>  
     <span class="token property">height</span><span class="token punctuation">:</span> 4px<span class="token punctuation">;</span>  
     <span class="token property">background-color</span><span class="token punctuation">:</span> #181C27<span class="token punctuation">;</span>    
 <span class="token punctuation">&#125;</span>  
  
 <span class="token comment">/*定义滚动条轨道 内阴影+圆角*/</span>  
-<span class="token selector">::-webkit-scrollbar-track</span>  
-<span class="token punctuation">&#123;</span>  
+<span class="token selector">::-webkit-scrollbar-track</span> <span class="token punctuation">&#123;</span>  
     <span class="token property">box-shadow</span><span class="token punctuation">:</span> inset 0 0 6px <span class="token function">rgba</span><span class="token punctuation">(</span>0<span class="token punctuation">,</span>0<span class="token punctuation">,</span>0<span class="token punctuation">,</span>0.3<span class="token punctuation">)</span><span class="token punctuation">;</span>  
     <span class="token property">-webkit-box-shadow</span><span class="token punctuation">:</span> inset 0 0 6px <span class="token function">rgba</span><span class="token punctuation">(</span>0<span class="token punctuation">,</span>0<span class="token punctuation">,</span>0<span class="token punctuation">,</span>0.3<span class="token punctuation">)</span><span class="token punctuation">;</span>  
     <span class="token property">border-radius</span><span class="token punctuation">:</span> 10px<span class="token punctuation">;</span>  
@@ -251,8 +249,7 @@ hexo d</code></pre></div>
 <span class="token punctuation">&#125;</span>  
   
 <span class="token comment">/*定义滑块 内阴影+圆角*/</span>  
-<span class="token selector">::-webkit-scrollbar-thumb</span>  
-<span class="token punctuation">&#123;</span>  
+<span class="token selector">::-webkit-scrollbar-thumb</span> <span class="token punctuation">&#123;</span>  
     <span class="token property">border-radius</span><span class="token punctuation">:</span> 10px<span class="token punctuation">;</span>  
     <span class="token property">box-shadow</span><span class="token punctuation">:</span> inset 0 0 6px <span class="token function">rgba</span><span class="token punctuation">(</span>0<span class="token punctuation">,</span>0<span class="token punctuation">,</span>0<span class="token punctuation">,</span>.3<span class="token punctuation">)</span><span class="token punctuation">;</span>  
     <span class="token property">-webkit-box-shadow</span><span class="token punctuation">:</span> inset 0 0 6px <span class="token function">rgba</span><span class="token punctuation">(</span>0<span class="token punctuation">,</span>0<span class="token punctuation">,</span>0<span class="token punctuation">,</span>0.3<span class="token punctuation">)</span><span class="token punctuation">;</span>  
@@ -275,12 +272,10 @@ hexo d</code></pre></div>
 <ol>
 <li>在<code>博客目录\themes\fluid\source\css</code>中新建<code>indeximg-hover.css</code></li>
 </ol>
-<div class="code-wrapper"><pre class="language-css" data-language="css"><code class="language-css"><span class="token selector">.index-img</span>
-<span class="token punctuation">&#123;</span>
+<div class="code-wrapper"><pre class="language-css" data-language="css"><code class="language-css"><span class="token selector">.index-img</span> <span class="token punctuation">&#123;</span>
   <span class="token property">transition</span><span class="token punctuation">:</span> .4s<span class="token punctuation">;</span>           <span class="token comment">/*动画时间*/</span>
 <span class="token punctuation">&#125;</span>
-<span class="token selector">.index-card:hover .index-img</span>
-<span class="token punctuation">&#123;</span>
+<span class="token selector">.index-card:hover .index-img</span> <span class="token punctuation">&#123;</span>
   <span class="token property">transform</span><span class="token punctuation">:</span> <span class="token function">scale</span><span class="token punctuation">(</span>1.05<span class="token punctuation">)</span><span class="token punctuation">;</span>    <span class="token comment">/*放大倍数*/</span>
 <span class="token punctuation">&#125;</span></code></pre></div>
 
@@ -324,7 +319,7 @@ hexo d</code></pre></div>
 <span class="token punctuation">&#125;</span></code></pre></div>
 
 <h4 id="去除末尾”Powered-by-Twikoo”"><a href="#去除末尾”Powered-by-Twikoo”" class="headerlink" title="去除末尾”Powered by Twikoo”"></a>去除末尾”Powered by Twikoo”</h4><p>保留技术支持信息是有必要的，但是为了简洁，还是想办法去除了。你我知道<a target="_blank" rel="noopener" href="https://twikoo.js.org/quick-start.html">Twikoo</a>赛高就可以了哈</p>
-<div class="code-wrapper"><pre class="language-css" data-language="css"><code class="language-css"><span class="token selector">.tk-footer</span><span class="token punctuation">&#123;</span>
+<div class="code-wrapper"><pre class="language-css" data-language="css"><code class="language-css"><span class="token selector">.tk-footer</span> <span class="token punctuation">&#123;</span>
     <span class="token property">display</span><span class="token punctuation">:</span> none<span class="token punctuation">;</span>
 <span class="token punctuation">&#125;</span></code></pre></div>
 
