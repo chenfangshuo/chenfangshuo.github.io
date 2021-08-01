@@ -5,7 +5,7 @@
     min-height: 210px !important;
     background-position: right 2.5% bottom 0 !important;
     background-size: 50px 56px !important;
-    transition: background-size 0.3s cubic-bezier(0.42, 0, 0.76, 1.02) 0s, background-position-y 0.5s cubic-bezier(0.42, 0, 0.2, 1.21) 0s !important;
+    transition: all 0.3s cubic-bezier(0.42, 0, 0.76, 1.02) 0s, background-position-y 0.5s cubic-bezier(0.42, 0, 0.2, 1.21) 0s !important;
 
 }
 .twikoo .tk-submit .el-textarea__inner:focus {
