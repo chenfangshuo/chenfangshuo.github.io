@@ -34,34 +34,47 @@
 }
 
 // -----------------------------------------------------------------------------
-// 2. Twikoo 评论框样式  ←  原 twikoo.css
-//    针对的是 Twikoo 自身的 DOM（.twikoo / .tk-* / Element UI 的 .el-*），
-//    换了博客框架也依然存在，因此原样保留：
-//      - 隐藏底部 "Powered by Twikoo"
-//      - 加高输入框，并让背景图在聚焦时向上位移（配合 Twikoo 后台设置的背景图）
+// 2. Twikoo 评论框样式  ←  原 twikoo.css（选择器已按新版 Twikoo 重写）
+//
+// ⚠️ 旧站的 twikoo.css 用的是 .tk-submit .el-textarea__inner 和 .el-input__count，
+//    那是 Twikoo 1.6.26 + Element UI 时代的类名。FixIt 打包的 Twikoo 已经换成自研
+//    输入组件，旧的 .el-* 类名一个都不存在了（实测 el-textarea__inner 出现 0 次），
+//    所以那几条规则等于没写：输入框高度没变、背景图也不会动。
+//
+//    新版 DOM（取自打包的 twikoo.all.min.js 自带样式）：
+//      .twikoo .tk-input .tk-textarea__inner    <- 输入框本身，背景图就贴在这一层
+//                                                  它自带 background-position:100% 100%
+//                                                  （这就是你看到的"右下角的小人"）
+//      .twikoo .tk-input__count                 <- 字数统计
+//      .tk-footer                               <- 底部 "Powered by Twikoo"
+//
+//    注意：Twikoo 的样式是运行时注入 <style> 的，位置在所有 <link> 之后，
+//    同优先级下会盖过我们的；所以下面这些必须带 !important 才生效。
 // -----------------------------------------------------------------------------
 .tk-footer {
   display: none;
 }
 
-.el-input__count {
+.twikoo .tk-input__count {
   display: none;
 }
 
-.twikoo .tk-submit .el-textarea__inner {
+// 输入框加高 + 把背景图（小人）固定到右下角、缩到 50x56
+.twikoo .tk-input .tk-textarea__inner {
   min-height: 210px !important;
   background-position: right 2.5% bottom 0 !important;
   background-size: 50px 56px !important;
-  transition: all .3s cubic-bezier(.42, 0, .76, 1.02) 0s,
-              background-position-y .5s cubic-bezier(.42, 0, .2, 1.21) 0s !important;
+  background-repeat: no-repeat !important;
+  transition: background-position .5s cubic-bezier(.42, 0, .2, 1.21),
+              background-size .3s cubic-bezier(.42, 0, .76, 1.02) !important;
 }
 
-.twikoo .tk-submit .el-textarea__inner:focus {
+// 聚焦（点击/打字）时把背景图向下移出可视区，并且变窄 —— 原站的"跳回去隐藏"
+.twikoo .tk-input .tk-textarea__inner:focus {
   background-position-y: 240px !important;
   background-size: 10px 56px !important;
 }
 
-// -----------------------------------------------------------------------------
 // 3. 页脚那颗心 hover 变红  ←  原 love.css 的效果
 //    旧版针对 .iconfont.icon-love（阿里图标字体），FixIt 不用那套字体，
 //    这里改挂到页脚「本站已运行」的心形图标（.site-time i）上。
