@@ -96,7 +96,9 @@
 // 主题自带的行为是 `.home.posts .summary .featured-image-preview:hover { scale: 1.01 }`
 // —— 也就是说**只有鼠标停在图片上**才有 1% 的整块缩放；停在标题、摘要、"阅读全文"
 // 上毫无反应。旧站 Fluid 写的是 `.index-card:hover .index-img { transform: scale(1.05) }`，
-// 悬停整张卡片就放大图片。这里恢复成后者，并且实现得更克制一点：
+// 悬停整张卡片就放大图片。这里恢复成后者的行为，但倍数与滤镜是按实际观感调的
+// （旧站是 scale(1.05) 且无过渡曲线；我们收敛到 1.02 + contrast(110%)），
+// 并且实现得更克制一点：
 //
 //   - 缩放的是**图片本身**（transform），画框尺寸不变 —— 不会像缩放整块那样
 //     连边框一起动，观感更稳
@@ -113,7 +115,10 @@
 
   img {
     border-radius: 0; // 圆角交给外层画框，避免放大时圆角跟着一起变
-    transition: transform .5s cubic-bezier(.25, .46, .45, .94);
+    // transform 和 filter 一起过渡，让"放大"与"提对比"同步发生
+    transition: transform .5s cubic-bezier(.25, .46, .45, .94),
+                filter .5s cubic-bezier(.25, .46, .45, .94);
+    filter: contrast(100%); // 显式给个起始值，否则 filter 从 none 开始无法平滑过渡
     will-change: transform;
   }
 }
@@ -125,7 +130,8 @@
 
 // 悬停卡片任意位置（图片 / 标题 / 摘要 / 阅读全文）→ 图片在画框内放大
 .summary:hover .featured-image-preview img {
-  transform: scale(1.05);
+  transform: scale(1.02); // 1.05 略夸张，收敛到 1.02
+  filter: contrast(110%); // 轻微的对比度提升，和放大一起给卡片一点"被点亮"的感觉
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -134,7 +140,7 @@
   }
 
   .summary:hover .featured-image-preview img {
-    transform: none;
+    transform: none; // 只去掉缩放/位移；对比度变化不算动效，保留
   }
 }
 
