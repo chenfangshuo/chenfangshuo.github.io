@@ -144,6 +144,164 @@
   }
 }
 
+// -----------------------------------------------------------------------------
+// 5. 首页 Hero：容器内圆角横幅
+//
+// FixIt 没有原生 hero。好在 .home-profile 就落在 main.fi-container 的页面宽度里，
+// 所以"容器内圆角横幅"是纯 CSS，不需要任何突破容器的 hack。
+//
+// 遮罩写成 background-image 里的第一层渐变（而不是 ::before 伪元素）：少一个层叠
+// 上下文、少一个 z-index 要管，渐变和 cover 一起缩放。
+// 遮罩恒为暗色、文字恒为白色 → 浅色模式下同样成立，所以不必写两套。
+//
+// 头像按你的选择隐藏（纯横幅）。它仍留在 HTML 里，只是不显示；原本兼作通往 /about/
+// 的链接，顶栏菜单里还有「关于」，功能不受影响。
+// -----------------------------------------------------------------------------
+.home.posts .home-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 240px;
+  margin: 0.5rem 0 1.5rem;
+  padding: 2.25rem 1.25rem;
+
+  border-radius: 1rem;
+  overflow: hidden;              // 裁掉溢出；顶部留白足够，不会被切
+  background-color: #181c27;     // 图片没加载出来时的兜底，与页面同色
+  background-image:
+    linear-gradient(180deg,
+      rgba(24, 28, 39, .38) 0%,
+      rgba(24, 28, 39, .62) 55%,
+      rgba(24, 28, 39, .82) 100%),
+    url("/images/hero.webp");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  // 纯横幅：不要头像
+  .home-avatar { display: none; }
+
+  // 压在图上，文字必须显式给亮色 —— 否则会继承 --fi-global-font-color
+  // （浅色模式下那是 #1f2328 深色，压在图上根本看不清）
+  .home-title {
+    margin: 0;
+    font-size: 1.75rem;
+    color: #fff;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, .5);
+  }
+
+  .home-subtitle {
+    font-size: 1.05rem;
+    color: #fff;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, .5);
+  }
+
+  .links {
+    padding-block: 0.75rem 0;
+  }
+
+  // 社交图标同理：默认继承链接色，浅色模式下是深色，图上不可读
+  .links a {
+    color: #fff;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, .45);
+    transition: opacity .3s ease;
+
+    &:hover { opacity: .7; }
+  }
+
+  .home-disclaimer { color: rgba(255, 255, 255, .8); }
+}
+
+@media (min-width: 680px) { // sm
+  .home.posts .home-profile {
+    min-height: 300px;
+    padding: 2.75rem 2rem;
+
+    .home-title { font-size: 2rem; }
+  }
+}
+
+@media (min-width: 960px) { // md
+  .home.posts .home-profile {
+    min-height: 340px;
+
+    .home-title { font-size: 2.25rem; }
+  }
+}
+
+@media (min-width: 1200px) { // lg
+  .home.posts .home-profile { min-height: 380px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home.posts .home-profile .links a { transition: none; }
+}
+
+// -----------------------------------------------------------------------------
+// 6. 中文正文排版
+//
+// 刻意**不**去改 [params.appearance] 的 global_line_height：它以固定长度落在 :root 上，
+// 会连标题一起绑死，是错的模型。这里只作用于文章正文（.page.single，卡片是
+// .single.summary 不带 .page，所以不会波及首页卡片）。
+// -----------------------------------------------------------------------------
+.page.single .content {
+  overflow-wrap: break-word;   // 中文里夹长 URL / 长英文串也能换行（主题 body 已有，这里加固）
+  word-break: normal;          // 不要 break-all，那会破坏中英混排
+
+  p {
+    margin-block: 0.8em;       // 主题 0.5rem 对中文偏紧，段间要透气
+    line-height: 1.8;          // 16px 下约 28.8px（主题 1.5rem = 24px 对中文偏挤）
+    letter-spacing: 0.02em;    // 与旧站 Fluid 一致，中文加一点字距更舒展
+  }
+
+  li { line-height: 1.8; }
+
+  // 标题只放松行高；字号字重沿用主题（中文粗体已够，降到 600 反而可能触发伪粗体）
+  .heading-element {
+    line-height: 1.4;
+    text-wrap: balance;        // 渐进增强：标题换行更均匀
+  }
+
+  // 行内代码不该继承正文的字距
+  :is(pre, code, kbd, samp) { letter-spacing: 0; }
+
+  // 渐进增强，不支持的浏览器整条忽略，无副作用
+  text-autospace: normal;      // CJK 与拉丁之间自动留缝
+  text-spacing-trim: trim-start; // 行首标点压缩
+}
+
+// -----------------------------------------------------------------------------
+// 7. 卡片与细节打磨（保持纵向卡片）
+//
+// 注意：**不动 .summary 的 padding-block** —— 主题那条虚线分隔符的 translate 是配着
+// 当前 1rem 的 padding 手调的，改了分隔线就会错位。只调子元素。
+// -----------------------------------------------------------------------------
+.home.posts .summary {
+  .featured-image-preview { margin: 0.85rem auto 1rem; } // 原 0.6rem
+
+  .single-title {
+    margin: 0.5rem 0 0.35rem;
+    font-size: 1.3rem;
+    line-height: 1.4;
+
+    a { transition: color .3s ease; }
+  }
+
+  .post-meta { margin-bottom: 0.25rem; }
+
+  .content {
+    margin-top: 0.5rem;        // 原 0.3rem
+    line-height: 1.7;
+  }
+
+  .post-footer { margin-block: 0.75rem 0; }
+
+  // 悬停整卡时标题也点亮，与第 4 节的封面放大呼应
+  &:hover .single-title a { color: var(--fi-single-link-hover-color); }
+}
+
 /// =============================================================================
 /// 以下旧文件「有意未移植」，原因记录在此，避免以后误以为漏了：
 ///

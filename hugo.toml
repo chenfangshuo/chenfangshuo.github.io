@@ -84,12 +84,27 @@ title = "ForSure"
 subtitle = "偷偷地Welcome一下!"   # 会被 hitokoto 随机一言替换；取不到就显示这句
 typeit = false
 social = true
-only_first_page = false
+only_first_page = true     # Hero 只在首页第一页出现，翻页不重复
 
 [params.home.posts]
 enable = true
 paginate = 10                # 旧站 per_page: 10
 image_preview = true
+
+# --- 外观 / 配色 ----------------------------------------------------------------
+# 主题的 [params.appearance] 是真·默认值所在（主题 hugo.toml 里那个是空脚手架）。
+# 两个硬性约束：值必须是 hex（写 red 这类命名色会被静默丢弃）；
+# 每个 *_dark 都有对应的浅色同胞键，只设 *_dark 就等于"浅色模式不动"。
+[params.appearance]
+# 深色页面底色压到 #181c27（默认 #1f252d 偏浅偏平）
+global_background_color_dark = "#181c27"
+# 顶栏比页面再暗一档，吸顶时才读得出"这是一条栏"
+header_background_color_dark = "#121821"
+# 代码块标题栏必须抬起来：默认 #161f28=(22,31,40) 与新底色 #181c27=(24,28,39) 几乎同色，
+# 会和页面糊在一起（mac 面板尤其明显）
+code_header_background_color_dark = "#212a35"
+# 圆角 6px -> 10px：封面/代码/表格/图片统一柔和（custom.scss 里用的就是这个变量）
+global_border_radius = "10px"
 
 # --- 代码块 ---------------------------------------------------------------------
 # mac 模式 = FixIt 内置的 macOS 风格面板，替代旧站自定义的 macpanel.css
@@ -97,6 +112,7 @@ image_preview = true
 mode = "mac"
 copyable = true
 wrapper = true
+shadow = "hover"             # 暗色底上给 mac 面板一点浮起感（悬停触发）
 
 # --- 目录 -----------------------------------------------------------------------
 [params.toc]
