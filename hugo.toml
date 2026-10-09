@@ -137,6 +137,18 @@ comment_count = true
 [params.cookieconsent]
 enable = false
 
+# --- 访问统计：GoatCounter ------------------------------------------------------
+# FixIt v1 没有内建 GoatCounter provider（只有 google/fathom/baidu/umami/plausible/cloudflare），
+# 所以用 [params.custom_partials] head 钩子自己注入：layouts/_partials/goatcounter.html
+# 站点码 = 注册时选的子域名前缀，也就是 https://<这段>.goatcounter.com 里的那段，
+# 在 GoatCounter 后台能看到。留空则不注入（等于关闭统计）。
+[params.goatcounter]
+code = ""   # ← 填入你的 GoatCounter 站点码，例如 "forsure"；留空则不统计
+
+# 把上面的 partial 挂到 <head>
+[params.custom_partials]
+head = ["goatcounter"]
+
 # --- 页脚 -----------------------------------------------------------------------
 [params.footer]
 enable = true

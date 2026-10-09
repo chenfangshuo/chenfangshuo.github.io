@@ -1,0 +1,7 @@
+{{- /* GoatCounter 访问统计。
+       FixIt v1 没有内建 GoatCounter provider（只有 google/fathom/baidu/umami/plausible/cloudflare），
+       所以用 [params.custom_partials] head 钩子自己注入这一段。
+       站点码填在 hugo.toml 的 [params.goatcounter] code；留空则整段不输出（等于关闭）。 */ -}}
+{{- with .Site.Params.goatcounter.code -}}
+  <script data-goatcounter="https://{{ . }}.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+{{- end -}}

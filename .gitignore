@@ -7,3 +7,6 @@
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# 本机运维笔记，不发布（README.md 只留公开介绍）
+MAINTENANCE.local.md
