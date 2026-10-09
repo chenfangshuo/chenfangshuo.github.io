@@ -1,0 +1,100 @@
+# =============================================================================
+# 构建并发布 forsure.live
+#
+# 设计要点（与「配好就长期不动」这个目标一致）：
+#   - Hugo 与 Dart Sass 版本都写死在 env 里，与本地一致 → 产物可复现
+#   - 只安装 Hugo extended + Dart Sass，**不需要 Node、不需要 Go**
+#     （fixit-cli 与内容加密组件才需要 Node，本站没用；Hugo Modules 才需要 Go，本站用 submodule）
+#   - 主题以 submodule 方式锁定（submodules: recursive 会取到钉死的那个 commit）
+#   - **刻意不使用 actions/configure-pages**：本仓库的 Pages 已经配好自定义域名，
+#     configure-pages 有可能去写 Pages 的域名配置，风险不值得冒；
+#     upload-pages-artifact + deploy-pages 本身就够用
+#   - **不加任何定时自动升级主题/依赖的 workflow**（见 README 的「不要做的事」）
+# =============================================================================
+
+name: Build and deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # 允许手动触发
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false # 不要取消正在进行的生产部署
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  HUGO_VERSION: 0.167.0
+  DART_SASS_VERSION: 1.105.1
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive # 取到锁定的 themes/FixIt
+          fetch-depth: 0 # enableGitInfo 需要完整历史，否则 .Lastmod 不准
+
+      - name: Install Hugo (extended) and Dart Sass
+        run: |
+          set -euo pipefail
+          # 直接用官方发布包，不引第三方 action（与主题 devcontainer 里的装法一致）
+          curl -sSLfo hugo.tar.gz \
+            "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.tar.gz"
+          sudo tar -C /usr/local/bin -xf hugo.tar.gz hugo
+          curl -sSLfo dart-sass.tar.gz \
+            "https://github.com/sass/dart-sass/releases/download/${DART_SASS_VERSION}/dart-sass-${DART_SASS_VERSION}-linux-x64.tar.gz"
+          sudo tar -C /usr/local -xf dart-sass.tar.gz
+          sudo ln -sf /usr/local/dart-sass/sass /usr/local/bin/sass
+          # 自检：版本不符就让这步直接失败，避免"悄悄用了别的版本"
+          hugo version
+          sass --version
+
+      - name: Build
+        run: hugo --gc --minify --logLevel info
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: ./public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5.0.1
+
+  # 把新站的 URL 推给百度，保持收录（旧站靠 hexo-baidu-url-submit 做这件事）
+  notify-baidu:
+    needs: deploy
+    runs-on: ubuntu-latest
+    continue-on-error: true # 百度接口挂了也不能影响站点发布
+    steps:
+      - name: Submit sitemap URLs to Baidu
+        run: |
+          set -uo pipefail
+          sleep 15 # 给 Pages 一点时间
+          curl -sS --max-time 30 https://forsure.live/sitemap.xml \
+            | grep -oE '<loc>[^<]+' | sed 's|<loc>||' > urls.txt || true
+          echo "URLs to submit: $(wc -l < urls.txt)"
+          head -5 urls.txt
+          # token 存在仓库 Secret 里，不要写进仓库（旧站把它明文写在 _config.yml 里了）
+          curl -sS --max-time 30 -H 'Content-Type:text/plain' --data-binary @urls.txt \
+            "http://data.zz.baidu.com/urls?site=forsure.live&token=${{ secrets.BAIDU_TOKEN }}"
