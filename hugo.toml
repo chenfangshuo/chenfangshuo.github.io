@@ -119,6 +119,13 @@ path = ""                    # 留空 = 用 window.location.pathname，旧评论
 visitor = true
 comment_count = true
 
+# --- Cookie 同意横幅 ------------------------------------------------------------
+# 主题默认开启（[params.cookieconsent] enable = true），但旧站没有这个横幅，
+# 且本站只用 GoatCounter（本身无 Cookie）与 Twikoo，所以关掉。
+# 若以后要开，改回 true 即可。
+[params.cookieconsent]
+enable = false
+
 # --- 页脚 -----------------------------------------------------------------------
 [params.footer]
 enable = true
@@ -199,3 +206,272 @@ weight = 5
 
 [menus.main.params]
 icon = "fa-solid fa-folder-tree"
+
+# =====================================================================================
+# 以下为「结构性配置」，从 themes/FixIt/hugo.toml @ v1.0.0-beta.1 原样复制而来。
+#
+# 为什么必须复制进来：Hugo 从「主题自己的配置文件」只默认合并 params / menus /
+# outputFormats / mediaTypes 四项，markup、outputs、taxonomies、frontmatter、sitemap、
+# privacy、build 都**不会**自动继承。其中最关键的是
+# [markup.goldmark.renderer] unsafe = true —— 少了它，那篇迁移过来的文章里的
+# <div id="refer-anchor-*> 锚点和 <sup> 脚注会被 Goldmark 直接丢掉。
+#
+# 另外 [outputs] 里的 archives / search 也是 FixIt 归档页与本地搜索索引所必需的。
+#
+# 因为已完整复制，这里去掉了主题原本的 _merge 标记（不再依赖合并语义）。
+# 升级主题时若主题的结构性配置有变，需要同步更新本节。
+# =====================================================================================
+[frontmatter]
+lastmod = [
+  "lastmod",
+  ":git",
+  ":fileModTime",
+  ":default",
+]
+
+# -------------------------------------------------------------------------------------
+# Menu Configuration
+# See: https://fixit.lruihao.cn/docs/getting-started/configuration/#menu-configuration
+# -------------------------------------------------------------------------------------
+
+
+[related]
+includeNewer = false
+threshold = 80
+toLower = false
+
+[[related.indices]]
+applyFilter = false
+cardinalityThreshold = 0
+name = 'keywords'
+pattern = ''
+toLower = false
+type = 'basic'
+weight = 100
+
+[[related.indices]]
+applyFilter = false
+cardinalityThreshold = 0
+name = 'date'
+pattern = ''
+toLower = false
+type = 'basic'
+weight = 10
+
+[[related.indices]]
+applyFilter = false
+cardinalityThreshold = 0
+name = 'tags'
+pattern = ''
+toLower = false
+type = 'basic'
+weight = 80
+
+[[related.indices]]
+applyFilter = false
+name = 'fragmentrefs'
+type = 'fragments'
+weight = 80
+
+# -------------------------------------------------------------------------------------
+# Modules Configuration
+# See: https://gohugo.io/configuration/module/
+# -------------------------------------------------------------------------------------
+
+
+[module]
+
+[module.hugoVersion]
+min = "0.166.0"
+
+# -------------------------------------------------------------------------------------
+# Markup Configuration
+# See: https://gohugo.io/configuration/markup/
+# -------------------------------------------------------------------------------------
+
+
+[markup]
+
+# Syntax highlighting.
+# See: [Syntax Highlighting](https://gohugo.io/content-management/syntax-highlighting)
+[markup.highlight]
+# ~~~~~~~~~~ necessary configurations ~~~~~~~~~~
+# https://github.com/hugo-fixit/FixIt/issues/43
+codeFences = true
+noClasses = false
+# ~~~~~~~~~~ necessary configurations ~~~~~~~~~~
+anchorLineNos = false
+guessSyntax = true
+lineNos = true
+lineNumbersInTable = true
+
+# Goldmark is from Hugo 0.60 the default library used for Markdown.
+# See: [Goldmark](https://gohugo.io/configuration/markup/#goldmark)
+[markup.goldmark]
+duplicateResourceFiles = false
+
+[markup.goldmark.extensions]
+definitionList = true
+footnote = true
+linkify = true
+linkifyProtocol = 'https'
+strikethrough = false
+table = true
+taskList = true
+typographer = true
+
+# See: https://gohugo.io/configuration/markup/#extras
+[markup.goldmark.extensions.extras]
+
+[markup.goldmark.extensions.extras.delete]
+enable = true
+
+[markup.goldmark.extensions.extras.insert]
+enable = true
+
+[markup.goldmark.extensions.extras.mark]
+enable = true
+
+[markup.goldmark.extensions.extras.subscript]
+enable = true
+
+[markup.goldmark.extensions.extras.superscript]
+enable = true
+
+# See: [Mathematics](https://gohugo.io/content-management/mathematics/)
+[markup.goldmark.extensions.passthrough]
+enable = true
+
+[markup.goldmark.extensions.passthrough.delimiters]
+block = [
+  [
+    '\[',
+    '\]'
+  ],
+  [
+    '$$',
+    '$$'
+  ]
+]
+inline = [
+  [
+    '\(',
+    '\)'
+  ],
+  [
+    '$',
+    '$'
+  ]
+]
+
+[markup.goldmark.parser]
+
+[markup.goldmark.parser.attribute]
+block = true
+title = true
+
+[markup.goldmark.renderer]
+hardWraps = false
+# Whether to use HTML tags directly in the document.
+unsafe = true
+xhtml = false
+
+# -------------------------------------------------------------------------------------
+# Sitemap Configuration
+# See: https://gohugo.io/configuration/sitemap/
+# -------------------------------------------------------------------------------------
+
+
+[sitemap]
+changefreq = "weekly"
+disable = false
+filename = "sitemap.xml"
+priority = 0.5
+
+# -------------------------------------------------------------------------------------
+# Permalinks Configuration
+# See: https://gohugo.io/configuration/permalinks/
+# -------------------------------------------------------------------------------------
+
+
+[privacy]
+
+[privacy.x]
+enableDNT = true
+
+[privacy.youtube]
+privacyEnhanced = true
+
+# -------------------------------------------------------------------------------------
+# Media Types Configuration
+# See: https://gohugo.io/configuration/media-types/
+# -------------------------------------------------------------------------------------
+
+# [mediaTypes]
+
+# [mediaTypes."application/feed+json"]
+# suffixes = [ "json" ]
+
+# -------------------------------------------------------------------------------------
+# Output Format Configuration
+# See: https://gohugo.io/configuration/output-formats/
+# -------------------------------------------------------------------------------------
+
+
+[outputs]
+home = [
+  "html",
+  "rss",
+  "archives",
+  "search",
+  "offline",
+  "manifest",
+  "link"
+]
+page = [
+  "html",
+  "markdown"
+]
+section = [
+  "html",
+  "rss"
+]
+taxonomy = [ "html" ]
+term = [
+  "html",
+  "rss"
+]
+
+# -------------------------------------------------------------------------------------
+# Taxonomies Configuration
+# See: https://gohugo.io/configuration/taxonomies/
+# -------------------------------------------------------------------------------------
+
+
+[taxonomies]
+category = "categories"
+tag = "tags"
+collection = "collections"
+# Enables /authors/<name>/ archive pages for the page-level `authors` front matter field.
+# Optional — sites that never set `authors` are unaffected.
+author = "authors"
+
+# -------------------------------------------------------------------------------------
+# Build Configuration
+# See: https://gohugo.io/configuration/build/
+# -------------------------------------------------------------------------------------
+
+
+[build]
+noJSConfigInAssets = true
+
+# -------------------------------------------------------------------------------------
+# Theme Core Configuration
+# Two types of params:
+#   1. Site-level params — apply to the entire site, can NOT be overridden per-page.
+#   2. Page-level params — can be overridden per-page via page front matter.
+#
+# See: https://fixit.lruihao.cn/docs/getting-started/configuration/params/
+# -------------------------------------------------------------------------------------
+
+
