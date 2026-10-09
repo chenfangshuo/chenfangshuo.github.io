@@ -189,13 +189,30 @@ themes/FixIt/                主题（submodule，锁在 v1.0.0-beta.1）
 CI 只需 **Hugo extended + Dart Sass** 两步 —— 不需要 Node、不需要 Go。
 （`fixit-cli` 和内容加密组件才需要 Node，本站都不用；Hugo Modules 才需要 Go，本站用 submodule。）
 
-### Cloudflare 注意
+### Cloudflare 注意（实测数据，非推测）
 
-`forsure.live` 走 Cloudflare 代理，源站是 GitHub Pages。切换上线后：
+`forsure.live` 走 Cloudflare 代理，源站是 GitHub Pages。DNS 记录**不需要改**。
 
-- **purge 一次缓存**，否则 `Cache-Control: max-age=600` 可能让旧页面继续返回约 10 分钟
-- **SSL/TLS 模式设为 Full (strict)**
-- DNS 记录**不需要改**（仍然指向同一个 GitHub Pages 源站）
+**缓存行为**（实测响应头）：
+
+| 内容 | Cloudflare 行为 | 后果 |
+|---|---|---|
+| HTML 页面 | `cf-cache-status: DYNAMIC`、`Age: 0` —— **不缓存** | 文章内容改动**即时生效** |
+| CSS / JS | `max-age=14400`（**4 小时**）、`cf-cache-status: HIT` | 不改文件名的话，样式改动最长 4 小时不生效 |
+
+所以本站开启了 **`fingerprint = "sha256"`**（见 `hugo.toml`）：资源文件名带上内容 hash，
+内容一变文件名就变，Cloudflare 和浏览器都不可能再拿到旧副本，还顺带获得 SRI 完整性校验。
+**改了 CSS/JS 不需要 purge 缓存。**
+
+唯一的例外：**`static/` 下的文件不走 Hugo 资源管线，因此不带 hash** ——
+`snow.js`、`assets` 外的图片、`baidu_verify_code-*.html` 属此类。
+改动它们要么在 Cloudflare 手动 purge，要么等 4 小时过期（平时基本不会动）。
+
+**SSL/TLS**：请设为 **Full**，不要 Flexible（源站走明文）。
+**也不建议 Full (strict)** —— 那要求源站有匹配证书，而 GitHub 只有 `*.github.io` 的证书；
+要拿到自定义域名证书得**临时关掉 Cloudflare 代理**让 GitHub 走 ACME，风险大于收益。
+因此 GitHub 侧的 `https_enforced` 保持 `false`（实测 `PUT` 会返回
+`The certificate does not exist yet`）——访客侧不受影响，HTTP 会 301 到 HTTPS。
 
 ---
 

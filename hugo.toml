@@ -47,6 +47,15 @@ default_theme = "dark"       # 旧站 dark_mode.default: dark
 summary_plainify = true
 date_format = "2006-01-02"
 
+# 资源文件名指纹（sha256）：CSS/JS 内容一变，文件名就带新 hash —— 于是
+# Cloudflare / 浏览器不可能再拿旧副本糊弄访客，也顺手获得 SRI 完整性校验。
+# 起因：Cloudflare 把 /css/*.css 缓存 4 小时（Cache-Control: max-age=14400），
+# 不带 hash 的文件名会让样式改动最长 4 小时不生效。HTML 本身是 DYNAMIC 不缓存的，
+# 所以只要文件名会变，指向就总是最新。
+# 注意：static/ 下的文件（snow.js、图片）不走 Hugo 资源管线，因此不带 hash；
+# 改动它们仍需 purge 缓存或等过期。
+fingerprint = "sha256"
+
 # --- 作者 -----------------------------------------------------------------------
 [params.author]
 name = "ForSure"
