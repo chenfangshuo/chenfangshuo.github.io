@@ -1,0 +1,9 @@
+# Hugo 构建产物
+/public/
+/resources/_gen/
+.hugo_build.lock
+
+# 操作系统
+.DS_Store
+Thumbs.db
+desktop.ini

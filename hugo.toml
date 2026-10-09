@@ -1,0 +1,201 @@
+# =====================================================================================
+# forsure.live — 站点配置（Hugo + FixIt v1）
+#
+# 这里只写「与主题默认值不同」的项，其余全部继承 themes/FixIt/hugo.toml。
+# Hugo 默认会深度合并主题的 params，所以下面的 params 是增量覆盖，不会丢主题默认值。
+#
+# ⚠️ 主题已钉在 v1.0.0-beta.1，请勿运行 `git submodule update --remote`
+#    （要升级请显式 checkout 新 tag，见 README/计划文档）
+#
+# 主题配置参考：themes/FixIt/hugo.toml（含全部键名与注释）
+# 文档：https://fixit.lruihao.cn/zh-cn/
+# =====================================================================================
+
+# --- 站点基本 -------------------------------------------------------------------
+baseURL = "https://forsure.live/"
+title = "ForSure's Blog"
+theme = ["FixIt"]
+
+# --- 语言 / 时区（FixIt v1 用 locale，languageCode 已废弃）----------------------
+defaultContentLanguage = "zh-cn"
+locale = "zh-CN"
+label = "简体中文"
+hasCJKLanguage = true
+timeZone = "Asia/Shanghai"
+
+# --- 基础开关 -------------------------------------------------------------------
+enableRobotsTXT = true
+enableGitInfo = true          # .Lastmod 取自 git 提交（CI 需 fetch-depth: 0）
+enableEmoji = true
+mainSections = ["posts"]
+copyright = "ForSure's Blog"
+summaryLength = 70           # 首页/列表摘要长度，对应旧站 auto_excerpt
+
+# --- 保留旧 URL -----------------------------------------------------------------
+# 旧站 Hexo 是 `permalink: :translate_title/`，文章在根路径 /<slug>/
+# 这里对齐成同样形状，这样 /customize-some-effects-for-hexofluid/ 不变，
+# Twikoo 评论（按页面路径存）才会自动挂回来。
+[permalinks.page]
+posts = "/:slug/"
+
+# =====================================================================================
+[params]
+
+description = "ForSure 的个人博客 —— AMD,YES!"
+keywords = ["ForSure", "博客", "AMD"]
+default_theme = "dark"       # 旧站 dark_mode.default: dark
+summary_plainify = true
+date_format = "2006-01-02"
+
+# --- 作者 -----------------------------------------------------------------------
+[params.author]
+name = "ForSure"
+link = "https://forsure.live/"
+avatar = "/images/avatar.jpg"
+
+# --- 顶栏 -----------------------------------------------------------------------
+[params.header]
+desktop_mode = "sticky"
+blur = true
+
+[params.header.title]
+name = "ForSure's Blog"
+
+[params.header.subtitle]
+name = "AMD,YES!"
+typeit = false               # 首页一言由 assets/js/custom.js 接管（见该文件）
+
+# --- 首页 -----------------------------------------------------------------------
+[params.home.profile]
+enable = true
+avatar_url = "/images/avatar.jpg"
+title = "ForSure"
+subtitle = "偷偷地Welcome一下!"   # 会被 hitokoto 随机一言替换；取不到就显示这句
+typeit = false
+social = true
+only_first_page = false
+
+[params.home.posts]
+enable = true
+paginate = 10                # 旧站 per_page: 10
+image_preview = true
+
+# --- 代码块 ---------------------------------------------------------------------
+# mac 模式 = FixIt 内置的 macOS 风格面板，替代旧站自定义的 macpanel.css
+[params.codeblock]
+mode = "mac"
+copyable = true
+wrapper = true
+
+# --- 目录 -----------------------------------------------------------------------
+[params.toc]
+enable = true
+position = "end"
+start_level = 2
+end_level = 6
+
+# --- 搜索（本地 Fuse.js，无需 Algolia）------------------------------------------
+[params.search]
+enable = true
+type = "fuse"
+placeholder = "搜索"
+
+[params.search.fuse]
+min_match_char_length = 1    # 主题默认 2，中文单字查询会查不到，放宽到 1
+
+# --- 浏览数 / 统计 --------------------------------------------------------------
+# 旧站的 LeanCloud 浏览量已移除（LeanCloud 2027-01-12 关停公共服务）。
+# 访问统计改用 GoatCounter，等上线阶段再接入（阶段 5）。
+
+# --- 评论：Twikoo（沿用现有后端）------------------------------------------------
+[params.comment]
+enable = true
+
+[params.comment.twikoo]
+enable = true
+env_id = "https://twikoo.forsure.live"
+region = "ap-shanghai"
+path = ""                    # 留空 = 用 window.location.pathname，旧评论按路径自动接回
+visitor = true
+comment_count = true
+
+# --- 页脚 -----------------------------------------------------------------------
+[params.footer]
+enable = true
+copyright = true
+author = true
+since = "2020"
+
+[params.footer.site_time]
+enable = true
+animate = true
+icon = "fa-solid fa-heart"   # 旧站页脚的那颗心（hover 变红见 custom.scss）
+value = "2020-11-18T00:00:00+08:00"
+
+# --- 社交链接 -------------------------------------------------------------------
+# 主题按 assets/data/social.yml 里的 Prefix 拼 URL
+[params.social]
+GitHub = "chenfangshuo"       # -> https://github.com/chenfangshuo
+Bilibili = "17124794"         # -> https://space.bilibili.com/17124794
+Douban = "195143404"          # -> https://www.douban.com/people/195143404/
+Steam = ""                    # 见下方自定义项（数字 SteamID 不能走 /id/ 前缀）
+
+# 旧链接是 https://steamcommunity.com/profiles/76561198319588402（数字 SteamID），
+# 而主题内置的 steam 前缀是 https://steamcommunity.com/id/（只适用于自定义短名），
+# 所以这里另起一个自定义条目，用 /profiles/ 前缀。
+[params.social.steamprofile]
+id = "76561198319588402"
+weight = 39
+prefix = "https://steamcommunity.com/profiles/"
+title = "Steam"
+
+[params.social.steamprofile.icon]
+class = "fa-brands fa-steam"
+
+# --- 菜单 -----------------------------------------------------------------------
+# 旧站只有「关于 / 友链」两个无文字图标项；归档等页面生成了却没有入口，这里一并补上。
+# 搜索按钮与明暗切换由主题自动加到顶栏，无需在此声明。
+[[menus.main]]
+identifier = "about"
+name = "关于"
+url = "about/"
+weight = 1
+
+[menus.main.params]
+icon = "fa-solid fa-user"
+
+[[menus.main]]
+identifier = "links"
+name = "友链"
+url = "links/"
+weight = 2
+
+[menus.main.params]
+icon = "fa-solid fa-link"
+
+[[menus.main]]
+identifier = "archives"
+name = "归档"
+url = "archives/"
+weight = 3
+
+[menus.main.params]
+icon = "fa-solid fa-archive"
+
+[[menus.main]]
+identifier = "tags"
+name = "标签"
+url = "tags/"
+weight = 4
+
+[menus.main.params]
+icon = "fa-solid fa-tags"
+
+[[menus.main]]
+identifier = "categories"
+name = "分类"
+url = "categories/"
+weight = 5
+
+[menus.main.params]
+icon = "fa-solid fa-folder-tree"

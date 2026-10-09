@@ -1,0 +1,12 @@
+# 友链数据
+# 页面：content/links/index.md（layout: friends）
+# 字段：nickname / avatar / url / description
+#
+# 迁移自旧 Hexo 站 _config.fluid.yml 的 links.items：
+#   - 丢弃了 3 条指向 Fluid 主题自身的占位项（Fluid Blog / Fluid Docs / Fluid Repo）
+#   - 保留了唯一的真实友链 Jinlk-Blog
+
+- nickname: Jinlk-Blog
+  avatar: https://jinlk.site/img/about.jpg
+  url: https://jinlk.site/
+  description: 努力的掙扎著...
