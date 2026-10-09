@@ -3,7 +3,8 @@ title: 为Hexo-Fluid自定义一些效果
 date: 2021-07-28T14:24:20+08:00
 slug: customize-some-effects-for-hexofluid   # 原来是 Hexo 的 translate_title，用来保住旧 URL
 draft: false
-featured_image: featured-image.jpg          # 原来是 Fluid 的 index_img（图已本地化到本目录）
+featured_image: featured-image.jpg                  # 文章大封面  <- 旧站 post.banner_img (sunset.jpg 3840x2160)
+featured_image_preview: featured-image-preview.jpg  # 首页卡片缩略图 <- 旧站 index_img (fluid2.jpg 280x165)
 tags: []
 categories: []
 ---

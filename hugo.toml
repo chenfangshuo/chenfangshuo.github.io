@@ -41,7 +41,7 @@ posts = "/:slug/"
 # =====================================================================================
 [params]
 
-description = "ForSure 的个人博客 —— AMD,YES!"
+description = "ForSure 的个人博客"
 keywords = ["ForSure", "博客", "AMD"]
 default_theme = "dark"       # 旧站 dark_mode.default: dark
 summary_plainify = true
@@ -62,8 +62,10 @@ blur = true
 name = "ForSure's Blog"
 
 [params.header.subtitle]
-name = "AMD,YES!"
-typeit = false               # 首页一言由 assets/js/custom.js 接管（见该文件）
+# 置空：旧站的 "AMD,YES!" 显示在首页 banner 上，FixIt 会渲染到顶栏，故留空。
+# 首页那句随机一言见 [params.home.profile] subtitle + assets/js/custom.js。
+name = ""
+typeit = false
 
 # --- 首页 -----------------------------------------------------------------------
 [params.home.profile]
@@ -179,33 +181,6 @@ weight = 2
 
 [menus.main.params]
 icon = "fa-solid fa-link"
-
-[[menus.main]]
-identifier = "archives"
-name = "归档"
-url = "archives/"
-weight = 3
-
-[menus.main.params]
-icon = "fa-solid fa-archive"
-
-[[menus.main]]
-identifier = "tags"
-name = "标签"
-url = "tags/"
-weight = 4
-
-[menus.main.params]
-icon = "fa-solid fa-tags"
-
-[[menus.main]]
-identifier = "categories"
-name = "分类"
-url = "categories/"
-weight = 5
-
-[menus.main.params]
-icon = "fa-solid fa-folder-tree"
 
 # =====================================================================================
 # 以下为「结构性配置」，从 themes/FixIt/hugo.toml @ v1.0.0-beta.1 原样复制而来。

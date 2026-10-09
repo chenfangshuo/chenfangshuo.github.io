@@ -47,6 +47,21 @@ hugo server                                # 预览，不含草稿
 hugo --gc --minify                         # 生产构建，产物在 public/
 ```
 
+### ⚠️ 为什么 `hugo server` 里看不到评论区
+
+**这是主题有意为之，不是配置错了。** 主题的
+`layouts/_partials/init/detection-env.html` 把整段评论配置包在
+`{{- if hugo.IsProduction -}}` 里，所以开发环境下页面**完全不渲染评论容器**——
+目的是避免本地测试时把测试评论写进你线上的 MongoDB。
+
+想本地看到评论（含已有的历史评论），用生产环境跑：
+
+```bash
+hugo server -e production                  # 评论正常加载（只是别真的提交测试评论）
+```
+
+或者跑 `hugo --gc --minify` 后用任意静态服务器打开 `public/`。
+
 发布流程：把想发的那篇 `draft` 改成 `false` → `git add` / `commit` / `push`。
 CI 构建**不带** `--buildDrafts`，所以草稿永远不会被发到线上。
 
