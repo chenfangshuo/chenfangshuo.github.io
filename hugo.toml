@@ -143,7 +143,7 @@ enable = false
 # 站点码 = 注册时选的子域名前缀，也就是 https://<这段>.goatcounter.com 里的那段，
 # 在 GoatCounter 后台能看到。留空则不注入（等于关闭统计）。
 [params.goatcounter]
-code = ""   # ← 填入你的 GoatCounter 站点码，例如 "forsure"；留空则不统计
+code = "forsure"   # <- https://forsure.goatcounter.com/count 里的那段
 
 # 把上面的 partial 挂到 <head>
 [params.custom_partials]
