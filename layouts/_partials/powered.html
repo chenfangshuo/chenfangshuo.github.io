@@ -1,0 +1,11 @@
+{{- /* 页脚 "Hugo ♥ FixIt"
+       主题原本渲染的是 "由 Hugo 强力驱动 | 主题 - FixIt"（来自主题 i18n 的 poweredBySome），
+       站点级 i18n 覆盖在本站没生效，所以改成：关掉主题那行 + 这里自己渲染。
+       心形的 hover 变大变红见 assets/scss/custom.scss 第 3 节（.powered-heart）。 */ -}}
+<div class="footer-line powered">
+  <a href="https://github.com/gohugoio/hugo" target="_blank" rel="external nofollow noopener noreferrer"
+     title="Hugo {{ hugo.Version }}">Hugo</a>
+  <i class="fa-solid fa-heart powered-heart" aria-hidden="true"></i>
+  <a href="https://github.com/hugo-fixit/FixIt" target="_blank" rel="external"
+     title="FixIt">FixIt</a>
+</div>

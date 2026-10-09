@@ -164,6 +164,7 @@ code = "forsure"   # <- https://forsure.goatcounter.com/count 里的那段
 # 把上面的 partial 挂到 <head>
 [params.custom_partials]
 head = ["goatcounter"]
+footer = ["powered"]
 
 # --- 页脚 -----------------------------------------------------------------------
 [params.footer]
@@ -172,10 +173,17 @@ copyright = true
 author = true
 since = "2020"
 
+# 关掉主题自带的「由 Hugo 强力驱动 | 主题 - FixIt」，
+# 改由 layouts/_partials/powered.html 渲染成旧站那种 "Hugo ♥ FixIt"。
+# （试过用站点级 i18n 覆盖 poweredBySome，对 defaultContentLanguage 不生效，故改走这条路。）
+[params.footer.powered]
+enable = false
+
 [params.footer.site_time]
-enable = true
+# 关掉「本站已运行 X 天」那行（按你的要求）。想恢复改成 true 即可。
+enable = false
 animate = true
-icon = "fa-solid fa-heart"   # 旧站页脚的那颗心（hover 变红见 custom.scss）
+icon = "fa-solid fa-heart"
 value = "2020-11-18T00:00:00+08:00"
 
 # --- 社交链接 -------------------------------------------------------------------

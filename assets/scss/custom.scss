@@ -81,11 +81,16 @@
 //    旧版针对 .iconfont.icon-love（阿里图标字体），FixIt 不用那套字体，
 //    这里改挂到页脚「本站已运行」的心形图标（.site-time i）上。
 // -----------------------------------------------------------------------------
-.site-time i {
+// 页脚有两颗心：
+//   .site-time i    —— 「本站已运行」前面的那颗
+//   .powered-heart  —— 「Hugo ♥ FixIt」中间那颗（由 i18n/zh-CN.toml 注入）
+.site-time i,
+.powered-heart {
   transition: color .4s ease, font-size .4s ease;
 }
 
-.site-time i:hover {
+.site-time i:hover,
+.powered-heart:hover {
   color: red;
   font-size: larger;
 }
@@ -163,9 +168,9 @@
   align-items: center;
   justify-content: center;
 
-  min-height: 240px;
-  margin: 0.5rem 0 1.5rem;
-  padding: 2.25rem 1.25rem;
+  min-height: 120px;
+  margin: 0.5rem 0 1.25rem;
+  padding: 1.25rem 1rem;
 
   border-radius: 1rem;
   overflow: hidden;              // 裁掉溢出；顶部留白足够，不会被切
@@ -178,7 +183,7 @@
     // ?v=1 是刻意的版本令牌：static/ 不做指纹，而 GitHub Pages 给 404 也发
     // Cache-Control: max-age=14400，于是 Cloudflare 会把"曾经 404 过的静态文件"
     // 缓存 4 小时。换 Hero 图时把 v 递增即可立刻生效，比 purge 省事。
-    url("/images/hero.webp?v=2");
+    url("/images/hero.webp?v=3");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -190,13 +195,13 @@
   // （浅色模式下那是 #1f2328 深色，压在图上根本看不清）
   .home-title {
     margin: 0;
-    font-size: 1.75rem;
+    font-size: 1.5rem;
     color: #fff;
     text-shadow: 0 2px 10px rgba(0, 0, 0, .5);
   }
 
   .home-subtitle {
-    font-size: 1.05rem;
+    font-size: 0.95rem;
     color: #fff;
     text-shadow: 0 2px 10px rgba(0, 0, 0, .5);
   }
@@ -219,23 +224,23 @@
 
 @media (min-width: 680px) { // sm
   .home.posts .home-profile {
-    min-height: 300px;
-    padding: 2.75rem 2rem;
+    min-height: 150px;
+    padding: 1.5rem 1.5rem;
 
-    .home-title { font-size: 2rem; }
+    .home-title { font-size: 1.6rem; }
   }
 }
 
 @media (min-width: 960px) { // md
   .home.posts .home-profile {
-    min-height: 340px;
+    min-height: 170px;
 
-    .home-title { font-size: 2.25rem; }
+    .home-title { font-size: 1.75rem; }
   }
 }
 
 @media (min-width: 1200px) { // lg
-  .home.posts .home-profile { min-height: 380px; }
+  .home.posts .home-profile { min-height: 190px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
