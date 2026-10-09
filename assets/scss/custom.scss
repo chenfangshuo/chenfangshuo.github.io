@@ -42,9 +42,11 @@
 //    所以那几条规则等于没写：输入框高度没变、背景图也不会动。
 //
 //    新版 DOM（取自打包的 twikoo.all.min.js 自带样式）：
-//      .twikoo .tk-input .tk-textarea__inner    <- 输入框本身，背景图就贴在这一层
-//                                                  它自带 background-position:100% 100%
-//                                                  （这就是你看到的"右下角的小人"）
+//      .twikoo .tk-input .tk-textarea__inner    <- 输入框本身
+//          背景图（就是那个"小人"）来自 Twikoo 后台的设置项 COMMENT_BG_IMG
+//          （后台界面文案：「评论框自定义背景图片 URL 地址」），由 JS 以 **inline style**
+//          贴在这一层上；Twikoo 自带 background-position:100% 100% 把它摆在右下角，
+//          也就是下面这几条规则要接管的位置。想换图去 Twikoo 后台改，不用动 CSS。
 //      .twikoo .tk-input__count                 <- 字数统计
 //      .tk-footer                               <- 底部 "Powered by Twikoo"
 //
