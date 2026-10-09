@@ -120,6 +120,29 @@ themes/FixIt/                主题（submodule，锁在 v1.0.0-beta.1）
 | hitokoto | 首页随机一言 | `assets/js/custom.js` |
 | Cloudflare | DNS 代理 + TLS | 域名解析面板 |
 
+### Twikoo 前端版本（已升级到 2.0.13）
+
+主题 FixIt v1.0.0-beta.1 自带的是 **twikoo 2.0.12**。本站把它覆盖成了 **2.0.13**：
+
+- 覆盖方式：在 `assets/lib/twikoo/twikoo.all.min.js` 放一份 2.0.13。
+  **站点自己的 `assets/` 会遮蔽主题同路径的资源**，所以不需要改主题（submodule 保持干净），
+  也不需要引入 CDN（你在中国大陆，jsDelivr 不稳，这是刻意的）。
+- 升级原因：2.0.13 修了 **#1211 —— 评论里的图片/表情被宿主题的 `img{display:block}` 挤成块级**。
+  FixIt 正好这么设（`main.min.css` 里有多条 `img{display:block}`），所以这个 bug 在我们站是真实存在的。
+- 想退回主题自带版本：删掉 `assets/lib/twikoo/twikoo.all.min.js` 即可。
+- **升级前请先核对类名**：自定义 CSS（`assets/scss/custom.scss`）依赖
+  `.tk-input` / `.tk-textarea__inner` / `.tk-input__count` / `.tk-footer`。
+  换版本前先 `grep -o 'tk-textarea__inner' <新文件> | wc -l` 确认还在，否则评论框样式会再次失效
+  （1.6.x 的 Element UI 类名 `.el-textarea__inner` 就是这么没的）。
+- 部署后记得 **purge Cloudflare 缓存**：该文件名不带 hash，CDN 可能继续返回旧的 2.0.12。
+
+### ⚠️ 后端版本与前端不一致
+
+云函数（`https://twikoo.forsure.live`，Vercel 部署）当前是 **1.6.26**，而前端是 2.0.13。
+目前实际运行正常（评论能加载、能提交），Twikoo 前端会通过 `GET_FUNC_VERSION` 探测后端版本。
+但 2.0.13 的另一个修复 #1220（评论列表查询不再读取整页文档）属于**服务端查询逻辑**，
+只换前端不会生效 —— 要拿到那个修复必须重新部署云函数，那是一次独立操作（涉及 Vercel 与 MongoDB）。
+
 - **旧站的 LeanCloud 浏览量已移除**（LeanCloud 公共服务于 2027-01-12 关停），
   页面不再显示阅读数。
 - **GoatCounter 访问统计**待接入（还没注册）。
