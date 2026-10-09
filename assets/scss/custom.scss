@@ -90,11 +90,59 @@
   font-size: larger;
 }
 
+// -----------------------------------------------------------------------------
+// 4. 首页文章卡片：悬停卡片任意位置都放大封面图  ←  原 indeximg-hover.css 的效果
+//
+// 主题自带的行为是 `.home.posts .summary .featured-image-preview:hover { scale: 1.01 }`
+// —— 也就是说**只有鼠标停在图片上**才有 1% 的整块缩放；停在标题、摘要、"阅读全文"
+// 上毫无反应。旧站 Fluid 写的是 `.index-card:hover .index-img { transform: scale(1.05) }`，
+// 悬停整张卡片就放大图片。这里恢复成后者，并且实现得更克制一点：
+//
+//   - 缩放的是**图片本身**（transform），画框尺寸不变 —— 不会像缩放整块那样
+//     连边框一起动，观感更稳
+//   - 画框加 overflow: hidden，放大后的图被裁在框内
+//   - 圆角用主题自己的变量 --fi-global-border-radius，与站内其它图片一致；
+//     同时把图片自身的圆角去掉，避免"圆角套圆角"
+//   - 尊重系统的 prefers-reduced-motion
+//
+// custom.min.css 在所有主题 CSS 之后加载，所以同优先级下我们的规则生效。
+// -----------------------------------------------------------------------------
+.summary .featured-image-preview {
+  overflow: hidden;
+  border-radius: var(--fi-global-border-radius);
+
+  img {
+    border-radius: 0; // 圆角交给外层画框，避免放大时圆角跟着一起变
+    transition: transform .5s cubic-bezier(.25, .46, .45, .94);
+    will-change: transform;
+  }
+}
+
+// 抵消主题那条"只有悬停图片本身才缩放整块"的规则（同优先级 + 靠后加载即可覆盖）
+.home.posts .summary .featured-image-preview:hover {
+  scale: 1;
+}
+
+// 悬停卡片任意位置（图片 / 标题 / 摘要 / 阅读全文）→ 图片在画框内放大
+.summary:hover .featured-image-preview img {
+  transform: scale(1.05);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .summary .featured-image-preview img {
+    transition: none;
+  }
+
+  .summary:hover .featured-image-preview img {
+    transform: none;
+  }
+}
+
 /// =============================================================================
 /// 以下旧文件「有意未移植」，原因记录在此，避免以后误以为漏了：
 ///
-///   indeximg-hover.css  → 选择器是 Fluid 的 .index-card / .index-img，
-///                         FixIt 的文章卡片 DOM 不同且自带 hover 效果。
+///   indeximg-hover.css  → 行为已移植（见上面第 4 节），只是选择器换成了
+///                         FixIt 的 .summary / .featured-image-preview。
 ///   macpanel.css        → 旧版手写的 macOS 代码块面板；FixIt 内置
 ///                         [params.codeblock] mode = "mac"，无需 CSS。
 ///   lazyload-ani.css    → 旧站在 _config.fluid.yml 里本就是注释掉的（未启用），
