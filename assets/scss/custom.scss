@@ -178,7 +178,7 @@
     // ?v=1 是刻意的版本令牌：static/ 不做指纹，而 GitHub Pages 给 404 也发
     // Cache-Control: max-age=14400，于是 Cloudflare 会把"曾经 404 过的静态文件"
     // 缓存 4 小时。换 Hero 图时把 v 递增即可立刻生效，比 purge 省事。
-    url("/images/hero.webp?v=1");
+    url("/images/hero.webp?v=2");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
