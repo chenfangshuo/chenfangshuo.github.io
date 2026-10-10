@@ -154,13 +154,19 @@ comment_count = true
 [params.cookieconsent]
 enable = false
 
-# --- 访问统计：GoatCounter ------------------------------------------------------
+# --- 访问统计：GoatCounter（已停用）---------------------------------------------
 # FixIt v1 没有内建 GoatCounter provider（只有 google/fathom/baidu/umami/plausible/cloudflare），
 # 所以用 [params.custom_partials] head 钩子自己注入：layouts/_partials/goatcounter.html
 # 站点码 = 注册时选的子域名前缀，也就是 https://<这段>.goatcounter.com 里的那段，
-# 在 GoatCounter 后台能看到。留空则不注入（等于关闭统计）。
+# 在 GoatCounter 后台能看到。留空则不注入（等于关闭统计）—— 现在就是留空。
+#
+# 停用原因（2026-10-10，国内访问优化）：脚本主机 gc.zgo.at 从中国大陆不可达。
+# 国内实测 curl 挂满 21.28s 才超时（code=000），DevTools 里是被扩展拦下的
+# ERR_BLOCKED_BY_CLIENT。该脚本是**全站每页唯一无条件的跨域请求**，写在 <head> 里，
+# async 不阻塞渲染但会拖住 window.load —— 也就是"完全加载完要 30s"的主因。
+# 想恢复统计：把下面的 code 填回 "forsure" 即可，partial 一直挂着没删。
 [params.goatcounter]
-code = "forsure"   # <- https://forsure.goatcounter.com/count 里的那段
+code = ""   # 曾为 "forsure"
 
 # 把上面的 partial 挂到 <head>
 [params.custom_partials]
