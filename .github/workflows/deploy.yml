@@ -81,9 +81,48 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v5.0.1
 
+  # 部署后清一次 Cloudflare 缓存。
+  #
+  # 起因：为了让国内访客不再每次翻页都跑一趟「CF 边缘（洛杉矶）→ 源站（东京 GitHub Pages）」，
+  # 在 Cloudflare 加了一条 Cache Rule 让 HTML 也能边缘缓存（默认 HTML 是 DYNAMIC 不缓存的）。
+  # 代价是内容更新后边缘可能还留着旧 HTML —— 所以每次部署必须 purge，两件事是一套的，缺一不可。
+  #
+  # ⚠️ 这里**故意不加 continue-on-error**：purge 失败 = 访客可能看到旧页面（最长 10 分钟，
+  #    即 GitHub Pages 给 HTML 的 max-age=600），属于用户可见的问题，应该让 CI 红给你看。
+  #    对比 notify-baidu —— 那个失败了没有任何用户可见后果，所以它才 continue-on-error。
+  #
+  # 没配 Secret 时优雅跳过（不会把 CI 弄红），方便先合并这份 workflow 再去建 token。
+  purge-cloudflare:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Purge Cloudflare cache
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CF_API_TOKEN:-}" ] || [ -z "${CF_ZONE_ID:-}" ]; then
+            echo "::notice::CF_API_TOKEN / CF_ZONE_ID 未配置，跳过 purge。"
+            echo "若已启用 HTML 边缘缓存（Cache Rule），跳过 purge 会让内容更新最长延迟 10 分钟。"
+            echo "配置方法见 MAINTENANCE.local.md「国内访问优化」。"
+            exit 0
+          fi
+          # purge_everything 最简单也最不容易漏。代价是带指纹的 CSS/JS 也会被清掉、
+          # 下次访问重新拉一遍 —— 本站很小，可忽略。想更精细可以换成
+          # {"hosts":["forsure.live"]}，但那样要自己保证不漏。
+          resp=$(curl -sS --max-time 30 -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}')
+          echo "$resp"
+          echo "$resp" | grep -q '"success":true' \
+            || { echo "::error::Cloudflare purge 失败——边缘可能继续返回旧 HTML"; exit 1; }
+
   # 把新站的 URL 推给百度，保持收录（旧站靠 hexo-baidu-url-submit 做这件事）
   notify-baidu:
-    needs: deploy
+    needs: purge-cloudflare # 排在 purge 之后，保证百度抓到的是新内容
     runs-on: ubuntu-latest
     continue-on-error: true # 百度接口挂了也不能影响站点发布
     steps:
