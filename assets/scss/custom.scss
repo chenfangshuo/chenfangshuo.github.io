@@ -373,6 +373,43 @@ $home-media-radius: 1rem;
   &:hover .single-title a { color: var(--fi-single-link-hover-color); }
 }
 
+// -----------------------------------------------------------------------------
+// 8. 雪花画布（由 assets/js/snow.js 创建并挂上 .snow-canvas）
+//
+//    这里**只写定位、层叠与颜色**。宽高由 JS 内联写死（按 W/H 算出的像素值）——
+//    canvas 的 CSS 尺寸必须与 bitmap 尺寸严格对应，交给 JS 一处算，比两边各算一遍
+//    更不容易错。
+//
+//    position: fixed + inset: 0 铺满视口，但完全不参与交互：pointer-events: none
+//    让点击穿透，所以顶栏、明暗切换、回到顶部、正文链接都照常可点。
+//
+//    z-index: 1 = 主题 z-index 表里的 base（core/mixins/_z-index.scss：hide -1 / base 1 /
+//    loading 10 / sticky 100 / fixed 200）。压在所有静态正文之上，而顶栏是 200、
+//    阅读进度条是 200、回到顶部是 190，所以任何固定控件都不会被它挡住。
+//    ⚠️ 这里**不能**写 @include z-index(base)：本文件是独立编译的（head/css.html 只传
+//       vars，没有 @use 主题的 SCSS），主题的 mixin 在此不可用。与第 7 节用
+//       var(--fi-single-link-hover-color) 而不是 fi-var() 是同一个原因。
+//
+//    color 是"取色探针"：JS 端读 getComputedStyle(canvas).color 当雪花颜色。
+//    ⚠️ 必须保留 light-dark()，不能换成写死的 rgb()（那会丢掉主题感知）；也**不能**改成
+//       var(--fi-global-font-color) —— 它在浅色下解析为 #1f2328，白底上的近黑雪花像落灰，
+//       不像下雪。这里给的是"浅色中灰蓝 / 深色纯白"这一对自己调的色。
+//    依赖的事实（已核实）：:root 上是 color-scheme: light dark，
+//       [data-theme-mode='light'|'dark'] 覆盖它（core/_root.scss），而 color-scheme 可继承
+//       → canvas 能把 light-dark() 解析成当前主题的 rgb()。
+//
+//    ⚠️ 别给它加 transform / filter / backdrop-filter：那会新建包含块，
+//       fixed 定位会从"相对视口"变成"相对该元素"，画布尺寸立刻算错。
+// -----------------------------------------------------------------------------
+.snow-canvas {
+  position: fixed;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+  z-index: 1;
+  color: light-dark(rgb(95, 112, 138), rgb(255, 255, 255)); // 浅色中灰蓝 / 深色纯白
+}
+
 /// =============================================================================
 /// 以下旧文件「有意未移植」，原因记录在此，避免以后误以为漏了：
 ///

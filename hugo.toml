@@ -52,8 +52,9 @@ date_format = "2006-01-02"
 # 起因：Cloudflare 把 /css/*.css 缓存 4 小时（Cache-Control: max-age=14400），
 # 不带 hash 的文件名会让样式改动最长 4 小时不生效。HTML 本身是 DYNAMIC 不缓存的，
 # 所以只要文件名会变，指向就总是最新。
-# 注意：static/ 下的文件（snow.js、图片）不走 Hugo 资源管线，因此不带 hash；
-# 改动它们仍需 purge 缓存或等过期。
+# 注意：static/ 下的文件（图片、baidu_verify_code-*.html）不走 Hugo 资源管线，因此不带
+# hash；改动它们仍需 purge 缓存或等过期。（雪花脚本原先也是这类，已改为 assets/js/snow.js
+# 由 custom.js import，见 MAINTENANCE.local.md。）
 fingerprint = "sha256"
 
 # --- 作者 -----------------------------------------------------------------------

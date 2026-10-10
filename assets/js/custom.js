@@ -3,8 +3,10 @@
  * 由 FixIt 自动加载（assets/js/custom.js）
  *
  * 1) 首页随机一言：从 hitokoto 取一句随机句子，带打字机效果写入 .home-subtitle
- * 2) 雪花特效：动态注入旧站的 snow.js（经典脚本，非 ESM，见下方说明）
+ * 2) 雪花特效：同目录的 snow.js（Canvas 实现），由 js.Build 内联进同一份产物
  */
+
+import { initSnow } from './snow.js'
 
 const { fixit } = window
 
@@ -45,19 +47,16 @@ const initHitokoto = async () => {
 }
 
 /**
- * 2. 雪花特效（原 blog/source/js/snow.js，DHTML Snowstorm）
- *    snowStorm 的 IIFE 依赖非严格模式下的全局 `this`，无法作为 ESM 模块引入，
- *    因此把它放在 static/js/ 下按经典脚本动态注入。
- *    该脚本自身带 excludeMobile，移动端不会启用。
+ * 2. 雪花特效见 ./snow.js（原 blog/source/js/snow.js，DHTML Snowstorm 1.44，
+ *    已整份换成 Canvas 实现）。放在 assets/ 而不是 static/ 是有意的：
+ *    static/ 不走 Hugo 资源管线、产物不带 hash，改一次要等 Cloudflare 4 小时过期
+ *    或手动 purge；import 进来就随 custom.min.<hash>.js 一起指纹化，改完立刻生效。
  */
-const initSnow = () => {
-  const s = document.createElement('script')
-  s.src = '/js/snow.js'
-  s.async = true
-  document.body.appendChild(s)
-}
 
 const init = () => {
+  // ⚠️ 顺序有意为之：hitokoto 先启动。两者现在在同一份 bundle 里，而 initHitokoto 是
+  //    async（在第一个 await 处就返回，后续不受影响），所以万一下面的 initSnow() 同步抛错，
+  //    一言也不会被连累。别把两行对调。
   initHitokoto()
   initSnow()
   console.log('custom.js loaded', fixit && fixit.version)
