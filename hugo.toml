@@ -61,7 +61,7 @@ fingerprint = "sha256"
 [params.author]
 name = "ForSure"
 link = "https://forsure.live/"
-avatar = "/images/avatar.jpg"
+avatar = "/images/avatar.webp"   # 2026-10-10 由 avatar.jpg(576x576/63KB) 转来，省 52KB
 
 # --- 顶栏 -----------------------------------------------------------------------
 [params.header]
@@ -80,7 +80,7 @@ typeit = false
 # --- 首页 -----------------------------------------------------------------------
 [params.home.profile]
 enable = true
-avatar_url = "/images/avatar.jpg"
+avatar_url = "/images/avatar.webp"
 title = "ForSure"
 subtitle = "偷偷地Welcome一下!"   # 会被 hitokoto 随机一言替换；取不到就显示这句
 typeit = false
