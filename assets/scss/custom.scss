@@ -5,6 +5,18 @@
 /// =============================================================================
 
 // -----------------------------------------------------------------------------
+// 0. 首页两块"大图"共用的圆角
+//
+//    Hero 横幅（第 5 节）与文章卡片的封面图（第 4 节）在首页上下相邻，圆角不一致会
+//    看着像两套设计，所以抽成一个变量，改这里两边同时生效。
+//
+//    ⚠️ 它与 --fi-global-border-radius 是**两回事**：那个来自 hugo.toml 的
+//       global_border_radius（10px），管的是代码块 / 表格 / 正文里的图片；
+//       这里只管首页这两块大图（1rem，与 Hero 原本的取齐）。
+// -----------------------------------------------------------------------------
+$home-media-radius: 1rem;
+
+// -----------------------------------------------------------------------------
 // 1. 自定义滚动条  ←  原 scrollbar.css
 //    纯 ::-webkit-scrollbar，与具体主题无关，可直接沿用。
 //    效果见页面右侧滚动条（不支持 Firefox / IE，与原站一致）
@@ -108,15 +120,15 @@
 //   - 缩放的是**图片本身**（transform），画框尺寸不变 —— 不会像缩放整块那样
 //     连边框一起动，观感更稳
 //   - 画框加 overflow: hidden，放大后的图被裁在框内
-//   - 圆角用主题自己的变量 --fi-global-border-radius，与站内其它图片一致；
-//     同时把图片自身的圆角去掉，避免"圆角套圆角"
+//   - 圆角用 $home-media-radius（第 0 节），与首页 Hero 横幅取齐 —— 这两块大图
+//     上下相邻，圆角不一致会很显眼；同时把图片自身的圆角去掉，避免"圆角套圆角"
 //   - 尊重系统的 prefers-reduced-motion
 //
 // custom.min.css 在所有主题 CSS 之后加载，所以同优先级下我们的规则生效。
 // -----------------------------------------------------------------------------
 .summary .featured-image-preview {
   overflow: hidden;
-  border-radius: var(--fi-global-border-radius);
+  border-radius: $home-media-radius; // 与 Hero 一致（见第 0 节）
 
   img {
     border-radius: 0; // 圆角交给外层画框，避免放大时圆角跟着一起变
@@ -155,14 +167,31 @@
 // FixIt 没有原生 hero。好在 .home-profile 就落在 main.fi-container 的页面宽度里，
 // 所以"容器内圆角横幅"是纯 CSS，不需要任何突破容器的 hack。
 //
-// 遮罩写成 background-image 里的第一层渐变（而不是 ::before 伪元素）：少一个层叠
-// 上下文、少一个 z-index 要管，渐变和 cover 一起缩放。
+// 图片与遮罩都挂在 ::before 上，不再直接做 .home-profile 的 background —— 因为横幅
+// 也要"悬停放大"（与第 4 节的封面图同一套效果），而 background-size 从 cover 过渡到
+// 放大值是不可插值的（关键词 → 长度不能过渡），只能靠 transform: scale()。伪元素是
+// 唯一能整体缩放、又不会把标题和社交图标一起放大的载体 —— 直接 scale 容器的话文字
+// 会跟着变大、布局也会抖。
+//
+// 为此容器需要两件事：
+//   position: relative  给 ::before 定位；
+//   isolation: isolate  自成层叠上下文。否则 z-index:-1 的 ::before 会跑到容器背景
+//                       之**下**被页面背景盖住，整条横幅变空。在这个层叠上下文里
+//                       "元素自身背景"先于"负 z-index 子元素"绘制，于是下面的
+//                       background-color 正好成了图片没加载出来时的兜底底色。
+//
+// 遮罩仍写成 background-image 里的第一层渐变：少一个元素、少一个 z-index 要管，
+// 而且渐变跟着图片一起被 scale，暗角不会随着放大而"变淡"。
+//
 // 遮罩恒为暗色、文字恒为白色 → 浅色模式下同样成立，所以不必写两套。
 //
 // 头像按你的选择隐藏（纯横幅）。它仍留在 HTML 里，只是不显示；原本兼作通往 /about/
 // 的链接，顶栏菜单里还有「关于」，功能不受影响。
 // -----------------------------------------------------------------------------
 .home.posts .home-profile {
+  position: relative;
+  isolation: isolate;            // 关住下面那个 z-index:-1，见上文
+
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -172,21 +201,42 @@
   margin: 0.5rem 0 1.25rem;
   padding: 1.25rem 1rem;
 
-  border-radius: 1rem;
-  overflow: hidden;              // 裁掉溢出；顶部留白足够，不会被切
+  border-radius: $home-media-radius; // 与卡片封面一致（见第 0 节）
+  overflow: hidden;              // 裁掉溢出；放大后的图也被裁在这圈圆角里
   background-color: #181c27;     // 图片没加载出来时的兜底，与页面同色
-  background-image:
-    linear-gradient(180deg,
-      rgba(24, 28, 39, .38) 0%,
-      rgba(24, 28, 39, .62) 55%,
-      rgba(24, 28, 39, .82) 100%),
-    // ?v=1 是刻意的版本令牌：static/ 不做指纹，而 GitHub Pages 给 404 也发
-    // Cache-Control: max-age=14400，于是 Cloudflare 会把"曾经 404 过的静态文件"
-    // 缓存 4 小时。换 Hero 图时把 v 递增即可立刻生效，比 purge 省事。
-    url("/images/hero.webp?v=3");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+
+  // 横幅的"图"：悬停时只由它做 transform / filter
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+
+    background-image:
+      linear-gradient(180deg,
+        rgba(24, 28, 39, .38) 0%,
+        rgba(24, 28, 39, .62) 55%,
+        rgba(24, 28, 39, .82) 100%),
+      // ?v=1 是刻意的版本令牌：static/ 不做指纹，而 GitHub Pages 给 404 也发
+      // Cache-Control: max-age=14400，于是 Cloudflare 会把"曾经 404 过的静态文件"
+      // 缓存 4 小时。换 Hero 图时把 v 递增即可立刻生效，比 purge 省事。
+      url("/images/hero.webp?v=3");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+
+    // 放大 / 提对比的参数与第 4 节完全一致（1.02 + contrast(110%)），过渡曲线也同步；
+    // 末尾多挂的 brightness(.9) 是 Hero 独有的：它是页面顶部的"底布"，稍微压暗一点
+    // 就不会和下面那块高饱和的卡片封面抢注意力，白字也更稳。
+    //   ⚠️ 悬停规则里必须原样重复同一个 brightness —— filter 整条链会整体插值，
+    //      漏写就等于悬停时把压暗"补回来"，变成一悬停反而变亮。
+    //   深浅只改这一个数（两处要一起改）：.9 ≈ 暗 10%，.8 ≈ 暗 20%
+    //   （.9 实测亮度 55.17 → 49.6，即 −10%；早先试过 .65 = −35%，太闷）
+    filter: contrast(100%) brightness(.9); // contrast 显式给起始值，否则从 none 无法平滑过渡
+    transition: transform .5s cubic-bezier(.25, .46, .45, .94),
+                filter .5s cubic-bezier(.25, .46, .45, .94);
+    will-change: transform;
+  }
 
   // 纯横幅：不要头像
   .home-avatar { display: none; }
@@ -222,6 +272,14 @@
   .home-disclaimer { color: rgba(255, 255, 255, .8); }
 }
 
+// 悬停横幅任意位置（文字 / 图标 / 空白处）→ 底图在圆角框内放大、提对比
+// 倍数与对比度刻意写成和第 4 节完全相同的值，两块大图观感才是一套；
+// brightness 与常态逐字相同，所以悬停只是"放大 + 提对比"，不会把压暗一起改掉
+.home.posts .home-profile:hover::before {
+  transform: scale(1.02);
+  filter: contrast(110%) brightness(.9);
+}
+
 @media (min-width: 680px) { // sm
   .home.posts .home-profile {
     min-height: 150px;
@@ -245,6 +303,11 @@
 
 @media (prefers-reduced-motion: reduce) {
   .home.posts .home-profile .links a { transition: none; }
+
+  .home.posts .home-profile::before { transition: none; }
+
+  // 与第 4 节同样的取舍：只去掉缩放，对比度变化不算动效，保留
+  .home.posts .home-profile:hover::before { transform: none; }
 }
 
 // -----------------------------------------------------------------------------
