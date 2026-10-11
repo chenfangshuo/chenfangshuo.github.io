@@ -84,8 +84,16 @@ $home-media-radius: 1rem;
 }
 
 // 聚焦（点击/打字）时把背景图向下移出可视区，并且变窄 —— 原站的"跳回去隐藏"
+//
+// ⚠️ 这里必须是相对高度的 calc()，不能写死像素。原来写的是 background-position-y: 240px，
+//    在默认的 210px 高输入框上恰好够用（240 > 210，小人被推到框外看不见），
+//    但 Twikoo 的 textarea 默认 resize: both，用户把评论框往下拖高之后，
+//    240px 就落在框**里面**了 —— 于是聚焦时那个被压成 10px 宽的残片会停在
+//    "右下角偏上方一点"的位置露出来。改成 calc(100% + 64px) 后，无论框多高，
+//    图片顶边都停在框底之下 8px（100% 让图片底边贴住框底，再加 64px 让 56px 高的图
+//    整体沉下去），跟默认高度时的表现完全一致。
 .twikoo .tk-input .tk-textarea__inner:focus {
-  background-position-y: 240px !important;
+  background-position-y: calc(100% + 64px) !important;
   background-size: 10px 56px !important;
 }
 
