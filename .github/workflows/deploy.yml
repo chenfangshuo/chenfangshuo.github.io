@@ -36,6 +36,14 @@ env:
   HUGO_VERSION: 0.167.0
   DART_SASS_VERSION: 1.105.1
   TZ: Asia/Shanghai
+  # 把并行渲染的 worker 数压到 1。
+  # 起因是本地（Windows）构建有三到六成概率「卡很久」：Hugo 并发去和多个 Dart Sass
+  # 子进程握手会打架，失败后干等 30 秒内部超时再自己恢复，构建结果一直是对的，但那个
+  # 坏掉的 sass 进程没人回收，Hugo 退出时等它，于是永远不返回。详见 scripts/hugo-build.ps1。
+  # CI 跑在 Linux 上不卡，但同一个竞争还会让正文里的相对链接偶尔漏解析（实测同一份源码
+  # 并发构建出 <a href=mpv.conf>、降并发后才是正确的 <a href=/my-mpv-config/mpv.conf>），
+  # 所以这里也锁上，让产物是确定的。代价是构建慢一两秒，本站无所谓。
+  HUGO_NUMWORKERMULTIPLIER: "1"
 
 jobs:
   build:
