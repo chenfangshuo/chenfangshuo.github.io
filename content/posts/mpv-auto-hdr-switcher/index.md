@@ -105,7 +105,9 @@ Windows 的 HDR 是个**全局开关**：开着的时候桌面、浏览器、SDR
 
 {{% include auto-hdr.lua lua %}}
 
-也可以在 GitHub 上取：[chenfangshuo/auto-hdr](https://github.com/chenfangshuo/auto-hdr)。仓库里的 `DEVELOPER.md` 写了实现细节、mpv 事件语义的实测结论和完整排错表，`test/` 下有一套用假 HDRCmd 跑的自测（不碰真实显示器）。
+也可以在 GitHub 上取：[chenfangshuo/auto-hdr](https://github.com/chenfangshuo/auto-hdr)。脚本是 **MIT 许可**的，想怎么改、想塞进自己的配置里都行，不用来问。
+
+仓库里的 `DEVELOPER.md` 写了实现细节、mpv 事件语义的实测结论和完整排错表，`test/` 下有一套用假 HDRCmd 跑的自测（不碰真实显示器）。
 
 ### 最后
 
