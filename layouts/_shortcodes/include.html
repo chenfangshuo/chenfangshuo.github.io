@@ -1,0 +1,13 @@
+{{- /* 把当前页面包（page bundle）里的一份资源原样渲染成代码块，正文无需再抄一份。
+       用法（注意是 % 而不是 <，输出要再过一遍 Markdown，才会走主题的代码块渲染钩子）：
+         {{% include mpv.conf ini %}}
+       第一个参数是资源文件名，第二个是语法高亮语言（可省略，默认 ini）。
+       找不到资源时直接让构建失败，避免文章里悄悄显示成空白。 */ -}}
+{{- $name := .Get 0 -}}
+{{- $lang := .Get 1 | default "ini" -}}
+{{- with .Page.Resources.GetMatch $name -}}
+  {{- /* 必须 safeHTML：否则模板引擎会先把引号等转成 &#34;，Goldmark 再转义一次，页面上就直接显示成 &#34; */ -}}
+  {{- printf "```%s\n%s\n```" $lang (strings.TrimRight "\n" .Content) | safeHTML -}}
+{{- else -}}
+  {{- errorf "include: 页面 %q 中找不到资源 %q" $.Page.Path $name -}}
+{{- end -}}
