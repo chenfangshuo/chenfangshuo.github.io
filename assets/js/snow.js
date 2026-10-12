@@ -75,6 +75,10 @@ const MAX_DT = 0.05          // dt 上限 50ms：切标签页回来时不要瞬�
 //       所以**首屏临时偏密的倍数 = 1 + (H/docH) / ENTER_SPAN**。取 1（= 文档走一遍的时间）
 //       时：长文章 H/docH≈11% → +11%（看不出）；两屏半的首页 40% → +40%（勉强）。
 //       取 0.3（≈6 秒）时是 +319%，取 1/19（≈首屏周转 19s）时是 +100% —— 都会白一片再回落。
+//       注意 T 里还乘了「实测片数 ÷ 一屏稳态片数」：开局那一屏不一定正好 76 片（实测 76~91
+//       都出现过），而偏密的倍数正比于 挂上去的片数 ÷ T，不归一化就等于 T 随开局片数漂。
+//       （这条的理论是确定的，但实测里它被另一件事盖住了：懒加载图片把文档撑高时会往场里
+//        补 150+ 片雪，那件事本身就带来 ±20% 的起伏 —— 未改动版也一样，见 MAINTENANCE。）
 //
 //   实测（1440×900，无头 Chrome + CDP）：填充前沿以**雪花自己的落速**（约 64 px/s）往下推，
 //   6s 到屏高 32%、10s 60%、15s 98%，前沿之后的密度就是常态密度；屏内片数峰值 1.10~1.17×
@@ -253,9 +257,18 @@ const staggerFirstScreen = () => {
   if (ENTER_SPAN <= 0) return
   const top = PAGE_ANCHORED ? scrollY : 0
   const bottom = top + H
-  // T = 文档走一遍的时间 = docH / 平均落速。见 ENTER_SPAN 里那段推导：这个取值让首屏
-  // 临时偏密的倍数正好是 1 + H/docH。
-  const span = (docH / (SPEED * MEAN_LAYER_SPEED)) * ENTER_SPAN
+  // 先数一遍这一屏里有多少片。**必须按实际片数定 T**：开局那一屏并不是每次都是 76 片
+  // （铺场那一刻文档还没被懒加载图片撑高，实测 76~91 片都出现过），而偏密的倍数正比于
+  // 「挂上去的片数 ÷ T」—— 用固定 T 的话，片数多的那几次会明显更密。见 ENTER_SPAN 的推导。
+  let staged = 0
+  for (let i = 0; i < particles.length; i++) {
+    const y = particles[i].y
+    if (y >= top && y < bottom) staged++
+  }
+  if (!staged) return
+  const expected = (W * H) / AREA_PER_FLAKE   // 一屏的稳态片数（1440×900 下 76）
+  // T = 文档走一遍的时间 × (这一屏的片数 ÷ 一屏稳态片数)
+  const span = ((docH / (SPEED * MEAN_LAYER_SPEED)) * (staged / expected)) * ENTER_SPAN
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i]
     // 逆推：这一片将在 t_enter 秒后穿过视口上沿，所以现在该挂在它自己落速乘 t_enter 的高度上
