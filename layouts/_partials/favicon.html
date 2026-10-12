@@ -1,0 +1,15 @@
+{{- /* 图标补充声明。
+       FixIt 的 head 只输出 ico + 两个 PNG + apple-touch-icon（见主题
+       layouts/_partials/base/head/index.html:93-107），且它的 svg_favicon 分支是
+       "要么全 SVG、要么全 PNG" 的互斥写法——设了就会把 ico/png 兜底全顶掉，不划算。
+       所以这里只补两条**增量**：现代浏览器优先吃 SVG，老浏览器继续用主题输出那套。
+
+       ?v= 是刻意的版本令牌：static/ 不做指纹，而 GitHub Pages 对 404 也发
+       Cache-Control: max-age=14400，CF 边缘会缓存"曾经 404 过的路径"。换图时递增即可。
+       （见 assets/scss/custom.scss 里 Hero 图 ?v=3 的同一套理由）
+
+       ⚠️ 不要为此打开 params.app.pwa：那个开关会连带注册 service worker + 更新提示
+          挂件，远超本需求。manifest 用静态文件 site.webmanifest 就好。 */ -}}
+
+<link rel="icon" type="image/svg+xml" href="{{ "/favicon.svg?v=1" | relURL }}">
+<link rel="manifest" href="{{ "/site.webmanifest" | relURL }}">

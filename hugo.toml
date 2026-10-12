@@ -169,9 +169,23 @@ enable = false
 code = ""   # 曾为 "forsure"
 
 # 把上面的 partial 挂到 <head>
+# favicon = 补 SVG 图标 + web manifest（主题只输出 ico/png，见 layouts/_partials/favicon.html）
 [params.custom_partials]
-head = ["goatcounter"]
+head = ["goatcounter", "favicon"]
 footer = ["powered"]
+
+# --- 图标 -----------------------------------------------------------------------
+# 主题默认值（mask_color #FF7359 / tile_color #2d89ef）都不是本站的色，
+# 而且 mask_color 非空就无条件输出 safari-pinned-tab.svg 的 <link>——
+# 之前站点没提供该文件，所以每页都在发一个 404。现在文件补上了，颜色也对齐了。
+[params.app]
+mask_color = "#FFFFFF"    # 单色剪影刷成白色，与深色底板对比最强
+tile_color = "#1D2025"    # = 图标底板色，Windows 磁贴不再出戏
+
+# --- 首页分享图 -----------------------------------------------------------------
+# 主题默认 cover = ""，导致首页分享出去 twitter:card 是 summary 且没有任何图。
+[params.seo]
+cover = "/og-home.png"
 
 # --- 页脚 -----------------------------------------------------------------------
 [params.footer]
