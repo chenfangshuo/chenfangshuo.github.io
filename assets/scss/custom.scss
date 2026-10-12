@@ -421,6 +421,16 @@ $home-media-radius: 1rem;
   display: block;
   pointer-events: none;
   z-index: 1;
+  // ⚠️ 这一行是**性能关键，别删**（2026-10-12 实测）：让画布成为独立合成图层。
+  //    否则它每帧重绘会把**整页的栅格一起弄脏** —— 页面上所有可见位图（首页卡片封面、
+  //    文章配图）都会跟着逐帧重新栅格化。实测：把页面上的 <img> 全
+  //    `visibility:hidden` 之后功耗立刻降约 8W，而删掉卡片封面的 will-change 没用 ——
+  //    说明那些图不是被"多合成"了一次，而是被重新"画"了一遍。
+  //    只加 will-change，**不要**加 transform / filter / backdrop-filter：will-change 只做
+  //    图层提升、不改变任何绘制结果；而 transform 之类会真的改变渲染路径。
+  //    （第 8 节下面那条"别加 transform"的老提醒说的是会新建包含块影响**后代**的 fixed
+  //      定位 —— 画布没有后代，will-change 也不做这件事。）
+  will-change: transform;
   color: light-dark(rgb(95, 112, 138), rgb(255, 255, 255)); // 浅色中灰蓝 / 深色纯白
 }
 
