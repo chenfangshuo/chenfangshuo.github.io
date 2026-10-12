@@ -144,7 +144,13 @@ $home-media-radius: 1rem;
     transition: transform .5s cubic-bezier(.25, .46, .45, .94),
                 filter .5s cubic-bezier(.25, .46, .45, .94);
     filter: contrast(100%); // 显式给个起始值，否则 filter 从 none 开始无法平滑过渡
-    will-change: transform;
+    // ⚠️ 这里**不要**加 will-change: transform。加了会让每张卡片封面常驻一个合成图层，
+    //    而页面静止时合成器根本不画帧、本来是白拿的；可雪花那块画布是每秒重绘 60 次的全屏
+    //    图层，会把它们全部拖进每一帧——首页 4~5 张卡片（dpr2 下每张约 1.07 Mpx）实测多花
+    //    **8W**（26W → 隐藏缩略图后 18W），而文章页没有卡片封面，同样雪花只花 7W。
+    //    悬停放大不需要它：transform 过渡 Chrome 会在动画期间自动提升图层；filter 过渡是
+    //    绘制级动画，本来就得逐帧重栅格，will-change: transform 帮不上它。实测见 MAINTENANCE
+    //    「性能：首页卡片封面」。
   }
 }
 
