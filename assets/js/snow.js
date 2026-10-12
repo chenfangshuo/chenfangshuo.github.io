@@ -37,6 +37,9 @@
  * 所以雪只存在于文档最顶上那一屏里。实测滚到 1200px 时视野内的雪花从 58 片掉到 15 片，
  * 剩下的基本是 position:fixed 粘在视口底边的那批。所以"滚动后雪就没了"才是它的实际行为。
  *
+ * 进场（刷新页面时首屏的雪从上沿揭开，而不是一上来就铺满整屏）见 ENTER_SECONDS。
+ * 它是**纯绘制**的：给首屏的雪记一个揭开时刻（revealAt），模拟本身一点没动。
+ *
  * ⚠️ 别把 SPEED 改回"每帧像素"，也别把 mouseWind 改回乘法 —— 那等于把 1)、2) 重新挖开。
  */
 
@@ -56,6 +59,26 @@ const AREA_PER_FLAKE = 17000 // 约每 17000 平方像素一片（按**整篇文
 const MAX_FLAKES = 3000      // 上限，防止 4K + 长文章时画爆（4K × 8432px 文章实测 1905 片）
 const MAX_DPR = 2            // DPR 封顶 2：再高的物理密度看不见，像素/内存却翻倍
 const MAX_DT = 0.05          // dt 上限 50ms：切标签页回来时不要瞬移一整屏
+
+// ★开关：刷新页面时，首屏的雪从视口上沿往下**揭开**，而不是一上来就铺满整屏。
+//   取值 = 揭开用几秒（0 = 关掉，回到旧的"一上来就铺满"）。
+//
+//   起因：粒子是按密度铺满**整篇文档**的，首屏自然也一上来就是满的 —— 于是刷新页面时
+//   一屏雪花**同时**出现，像贴了层膜，没有"开始下雪"的过程。
+//   做法：**只改绘制，不改模拟**。首次铺场后给首屏的每一片雪记一个"揭开时刻"，按它当时
+//   离视口顶的高度排（越靠上越先露面，见 revealAt）；到点之前不画它。雪照常在落、在融化、
+//   在回收，只是暂时不露面。于是你看到的是雪从上沿下起来，几秒后整屏铺满。
+//
+//   ⚠️ 为什么不用"物理进场"（把首屏那片雪抬到视口上方、让它们真的落回来）：那样做雪量
+//      会临时偏高。抬走的雪是**额外**加在"落到底边就融化 → 底部回收 → 顶端重生"那条现成
+//      循环之上的，实测首屏在头半分钟里会到常态的 **1.5~1.8 倍**（摊到 8 屏高能压到 +12%，
+//      但那些雪迟迟回不来，短页面上首屏反而会掉到 0.6× 并持续几分钟 —— 变稀比变密更显眼）。
+//      "揭开"没有这个问题：它不往循环里多注一片雪，任何时刻场的密度都是常态 ——
+//      而**视觉上是一样的**：真实世界"刚开始下雪"的样子，也正是屏幕从上往下一段段出现雪、
+//      且已经露出来的那一段密度就已经是常态密度。
+//
+//   取值建议 4~6 秒：太短和"瞬间铺满"差不多，太长显得像在擦拭屏幕。
+const ENTER_SECONDS = 5
 
 // 三层景深：近处 大/快/实，远处 小/慢/淡。
 //   radius = CSS 像素半径；speed = 乘在 SPEED 上的倍率；alpha = 整层不透明度。
@@ -106,6 +129,8 @@ let mouseNx = 0     // 鼠标归一化横坐标：-1 最左 … 0 正中 … +1 
 let raf = 0
 let last = 0
 let running = false
+let enterT = 0      // 进场揭开已经走了几秒（累加 dt，切后台不推进）
+let revealing = false // 揭开期内为 true；结束后整段逻辑短路掉
 
 const mqlReduce = window.matchMedia('(prefers-reduced-motion: reduce)')
 const mqlDark = window.matchMedia('(prefers-color-scheme: dark)')
@@ -156,6 +181,7 @@ const makeFlake = (yMin, yMax) => {
     drift: (Math.random() * 2 - 1) * BASE_DRIFT,
     alpha: layer.alpha,
     melt: -1,          // -1 = 正常下落；≥0 = 已融化了几秒
+    revealAt: 0,       // 进场揭开时刻（秒）；在此之前的帧不画它。见 ENTER_SECONDS
     meltY: 0,          // 融化时所在的文档位置；融化完就回到这里继续落
   }
 }
@@ -219,12 +245,32 @@ const syncField = () => {
   syncCount(prev, h, h > prev)
 }
 
+// 给首屏的雪排好"揭开时刻"（见 ENTER_SECONDS）。只在首次铺场之后调一次。
+// 按**当时的屏幕高度**排：视口顶端的立刻露面，屏底的 ENTER_SECONDS 秒后露面，中间线性。
+// 屏外的不排（保持 0 = 立刻露面）—— 往下滚时才进视野的那些雪本来就该是正常的，不参与进场。
+// 后续补片（文档长高）同理：makeFlake 里 revealAt 就是 0。
+const markEntryReveal = () => {
+  if (ENTER_SECONDS <= 0) return
+  const top = PAGE_ANCHORED ? scrollY : 0
+  const speed = H / ENTER_SECONDS     // 揭开前沿的下落速度（px/s）
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i]
+    const sy = p.y - top
+    if (sy >= 0 && sy < H) p.revealAt = sy / speed
+  }
+  enterT = 0
+  revealing = true
+}
+
 // -----------------------------------------------------------------------------
 // 渲染循环
 // -----------------------------------------------------------------------------
 const frame = (now) => {
   raf = requestAnimationFrame(frame)
-  const dt = Math.min((now - last) / 1000, MAX_DT) // 夹住 dt：切回来不要瞬移
+  // 夹住 dt：切回来不要瞬移。**下界 0 也是必需的** —— rAF 给的时间戳可能早于 start() 里
+  // 记的 performance.now()，第一帧会算出个负的 dt：那样全场雪会往上跳一帧，进场计时
+  // （enterT）也会变成负数、第一帧连"该露面"的都不画。实测第一帧 enterT ≈ -0.015s。
+  const dt = Math.min(Math.max((now - last) / 1000, 0), MAX_DT)
   last = now
 
   ctx.clearRect(0, 0, W, H)
@@ -232,6 +278,12 @@ const frame = (now) => {
   const top = PAGE_ANCHORED ? scrollY : 0 // 视野顶端在文档里的位置
   const dScroll = scrollY - prevScrollY    // 本帧的滚动量，用来判断越界是不是滚动推的
   prevScrollY = scrollY
+
+  // 进场揭开（见 ENTER_SECONDS）：到点之后整段短路掉，稳态下不多花一次判断。
+  if (revealing) {
+    enterT += dt
+    if (enterT >= ENTER_SECONDS) revealing = false
+  }
 
   // ---- 地面 = 屏幕底边，永远是 ----
   //
@@ -278,8 +330,10 @@ const frame = (now) => {
       }
       // 底边钉在地面上，所以圆心在 gy - r：缩小的时候是"往下沉进地里"，
       // 而不是浮在半空缩。
-      ctx.globalAlpha = a
-      ctx.drawImage(sprite, p.x - r, gy - r * 2, r * 2, r * 2)
+      if (!revealing || enterT >= p.revealAt) {
+        ctx.globalAlpha = a
+        ctx.drawImage(sprite, p.x - r, gy - r * 2, r * 2, r * 2)
+      }
       continue
     }
 
@@ -320,7 +374,9 @@ const frame = (now) => {
     if (p.x < -p.r) p.x = W + p.r
     else if (p.x > W + p.r) p.x = -p.r
 
-    if (sy > -p.r && sy < H + p.r) { // 屏幕外不画 —— 这是"铺满整篇文档"不花绘制成本的原因
+    // 屏幕外不画 —— 这是"铺满整篇文档"不花绘制成本的原因。进场揭开期内还没到点的也不画
+    //（它照常在落，只是暂时不露面；见 ENTER_SECONDS）。
+    if (sy > -p.r && sy < H + p.r && (!revealing || enterT >= p.revealAt)) {
       ctx.globalAlpha = p.alpha
       ctx.drawImage(sprite, p.x - p.r, sy - p.r, p.r * 2, p.r * 2)
     }
@@ -428,6 +484,8 @@ const teardown = () => {
   canvas && canvas.remove()
   canvas = ctx = sprite = undefined
   particles = []
+  enterT = 0
+  revealing = false
   window.fixitSnow = undefined
 }
 
@@ -460,6 +518,9 @@ export const initSnow = () => {
   // 此刻 document.scrollHeight 往往还很小（懒加载的图片没载入），没关系 ——
   // 页面随后长高时 syncField 会把新长出来的那一段按同样密度补上。
   syncCount(-NEAR.radius, docH, false)
+  // 再给首屏那批排好"揭开时刻"（见 ENTER_SECONDS）。要在 onResize 之前 ——
+  // 那之后补的片都在屏幕下方，不该参与进场。
+  markEntryReveal()
   onResize() // 定下 bitmap 尺寸与变换矩阵
 
   window.addEventListener('mousemove', onMouse, { passive: true })
@@ -485,11 +546,13 @@ export const initSnow = () => {
     SPEED,
     MOUSE_WIND,
     PAGE_ANCHORED,
+    ENTER_SECONDS,
     LAYERS,
     MELT_TOTAL,
     particles: () => particles,
     debug: () => ({
       rgb: spriteRgb, count: particles.length, W, H, docH, scrollY, dpr, running,
+      revealing, enterT,
       melting: particles.reduce((n, p) => n + (p.melt >= 0 ? 1 : 0), 0),
       groundY,
       // 融化线在屏幕上的位置。负 = 在屏幕上方；> H = 在屏幕下方（向上滚时就是这种）
@@ -497,7 +560,7 @@ export const initSnow = () => {
       // 把关键常量也报出来，好让验证脚本拿**实际生效的值**去算期望值。
       // （踩过：改完常量没重新构建就去测，脚本却用硬编码的期望值判定"通过"，
       //   结果测的是上一版产物。现在期望值一律从这里取。）
-      AREA_PER_FLAKE, MAX_FLAKES, SPEED, MOUSE_WIND, MELT_RADIUS, MELT_TOTAL,
+      AREA_PER_FLAKE, MAX_FLAKES, SPEED, MOUSE_WIND, MELT_RADIUS, MELT_TOTAL, ENTER_SECONDS,
     }),
     start,
     stop,
