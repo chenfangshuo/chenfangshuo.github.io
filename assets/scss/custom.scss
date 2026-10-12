@@ -199,8 +199,19 @@ $home-media-radius: 1rem;
 //
 // 遮罩恒为暗色、文字恒为白色 → 浅色模式下同样成立，所以不必写两套。
 //
-// 头像按你的选择隐藏（纯横幅）。它仍留在 HTML 里，只是不显示；原本兼作通往 /about/
-// 的链接，顶栏菜单里还有「关于」，功能不受影响。
+// 头像回归（2026-10-12）：顶栏已经写着 "ForSure's Blog"，横幅里再写一遍 "ForSure"
+// 是重复信息，所以那行标题让位给头像 —— 头像本来就是主题原生组件，之前是本文件
+// 把它 display:none 藏掉的，现在放出来。
+//
+// 标题**不删**，只是视觉隐藏（sr-only）：它是全页唯一的 <h1>（文章卡片用的是 h2），
+// 删空会让首页没有带文字的 h1，伤 SEO 与读屏。hugo.toml 里的 title 也照旧留着。
+//
+// 头像兼作通往 /about/ 的链接（主题把它包在 <a href=/about/> 里；藏着头像时那是个
+// 死链接，现在正好用上）。
+//
+// 高度：原来这里有 120/150/170/190 四级 min-height，头像进来后内容是 261px（手机）
+// / 277px（≥680px），**全部超过那四级**，它们已彻底失效，故删除。实测矩阵见
+// D:\Software\Blog\hero-compare.html（各视口 × 各方案的边框盒高度）。
 // -----------------------------------------------------------------------------
 .home.posts .home-profile {
   position: relative;
@@ -211,7 +222,6 @@ $home-media-radius: 1rem;
   align-items: center;
   justify-content: center;
 
-  min-height: 120px;
   margin: 0.5rem 0 1.25rem;
   padding: 1.25rem 1rem;
 
@@ -252,19 +262,34 @@ $home-media-radius: 1rem;
     will-change: transform;
   }
 
-  // 纯横幅：不要头像
-  .home-avatar { display: none; }
+  // 头像：手机 96px（主题默认 6rem），≥680px 换 128px —— 见下面媒体查询。
+  // 128px 在 200% 缩放的屏上是像素级刚好：avatar.webp 是 256×256，128 CSS px
+  // = 256 设备像素，1:1 无插值。
+  .home-avatar { display: block; }
 
-  // 压在图上，文字必须显式给亮色 —— 否则会继承 --fi-global-font-color
-  // （浅色模式下那是 #1f2328 深色，压在图上根本看不清）
+  // 标题 sr-only：占位 1px 且不参与布局（absolute 脱离 flex 流），但读屏和爬虫照常读到
   .home-title {
-    margin: 0;
-    font-size: 1.5rem;
-    color: #fff;
-    text-shadow: 0 2px 10px rgba(0, 0, 0, .5);
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
   }
 
+  // ⚠️ min-height 这一行是**防抖必需，别删**。custom.js 的一言打字机是"先清空、再逐字填"
+  //    （见 custom.js 的 el.textContent = ''），清空那一帧 <p> 会塌掉一整个行盒 ——
+  //    横幅跟着缩 24px，下面整页跳一下。这里把一行的高度垫住。
+  //    实测（2026-10-12，1440px）：不垫时空 253 / 一行 277 / 两行 301；垫上后空与一行同为 277。
+  //    副标题的 box-sizing 是 content-box，所以这个值指内容盒；1lh = 正好一个行盒。
+  //    （注：374px 窄屏上一句 19 字的一言本就折成两行，那种 261↔309 的变化是内容固有的，
+  //      老版也一样，不在这一行的职责内。）
   .home-subtitle {
+    min-height: 24px;  // 老浏览器兜底
+    min-height: 1lh;   // 现代浏览器：正好一个行盒，随字号自适应
     font-size: 0.95rem;
     color: #fff;
     text-shadow: 0 2px 10px rgba(0, 0, 0, .5);
@@ -296,24 +321,16 @@ $home-media-radius: 1rem;
 
 @media (min-width: 680px) { // sm
   .home.posts .home-profile {
-    min-height: 150px;
     padding: 1.5rem 1.5rem;
 
-    .home-title { font-size: 1.6rem; }
+    // 头像从 96px 加大到 128px（8rem）。主题默认在首页给的是 6rem。
+    // 96px 在桌面上偏"小徽章"，128px 才像张名片。
+    .home-avatar img { width: 8rem; }
   }
 }
 
-@media (min-width: 960px) { // md
-  .home.posts .home-profile {
-    min-height: 170px;
-
-    .home-title { font-size: 1.75rem; }
-  }
-}
-
-@media (min-width: 1200px) { // lg
-  .home.posts .home-profile { min-height: 190px; }
-}
+// 原来的 960 / 1200 两级（min-height 170/190 + .home-title 字号）已删 —— 见本节开头：
+// 头像进来后内容自然高 277px，把四级 min-height 全部超过；标题也已 sr-only，字号无意义。
 
 @media (prefers-reduced-motion: reduce) {
   .home.posts .home-profile .links a { transition: none; }

@@ -81,7 +81,9 @@ typeit = false
 [params.home.profile]
 enable = true
 avatar_url = "/images/avatar.webp"
-title = "ForSure"
+title = "ForSure"             # 横幅里已被头像取代、视觉上 sr-only 隐藏，但**必须留着**：
+                              # 它是首页唯一的 <h1>（卡片用 h2），删空会伤 SEO 与读屏。
+                              # 隐藏规则见 assets/scss/custom.scss 第 5 节。
 subtitle = "偷偷地Welcome一下!"   # 会被 hitokoto 随机一言替换；取不到就显示这句
 typeit = false
 social = true
