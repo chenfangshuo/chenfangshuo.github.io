@@ -192,8 +192,8 @@ def main() -> int:
             n += 1
             flag("ERROR", "draft-true", r["path"],
                  "未发布（draft: true / 未来日期 / 已过期）。CI 不带 --buildDrafts "
-                 "→ 这篇会被静默吞掉。若是有意的 WIP，在 commit message 里加 "
-                 "[skip-content-check]")
+                 "→ 这篇会被静默吞掉。若是有意的 WIP，在 commit message 里"
+                 "**独占一行**写 [skip-content-check]")
     counts["draft-true"] = n
 
     n = 0

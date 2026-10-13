@@ -70,14 +70,33 @@ jobs:
           hugo version
           sass --version
 
+      # 误报逃生口：commit message 里**独占一行**写 [skip-content-check]。
+      #
+      # ⚠️ 这里刻意不用 `if: !contains(github.event.head_commit.message, '…')`。
+      #    实测踩过：第一版用 contains()，而那条提交的正文里正好在**说明这个标记
+      #    怎么用**，于是 contains 命中、两个检查双双被跳过，CI 却是一片绿 ——
+      #    一个静默失效的检查比没有检查更糟。改成「整行完全相等」，就不可能在
+      #    叙述里被误触发。
+      #    另外用 env 传而不是把 ${{ }} 插进 shell：提交信息里可能有引号/反引号。
+      - name: Should the checks run?
+        id: gate
+        env:
+          MSG: ${{ github.event.head_commit.message }}
+        run: |
+          if [ -n "$MSG" ] && printf '%s' "$MSG" | grep -qxF '[skip-content-check]'; then
+            echo "::warning::内容/死链检查被跳过（commit message 里有独占一行的 [skip-content-check]）"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # 发文安全网：slug 忘了改 / draft 忘了关 / 封面图不存在。这两件事出错时
       # 本地完全看不出异常（见 scripts/check-content.py 的文件头）。
       # 刻意排在 Build 之前 —— 坏文章不必先浪费一次构建。
       # 只依赖 Python 3 标准库；ubuntu-latest 自带 python3，所以不需要 setup-python，
       # 也就仍然不需要 Node/Go（与文件头的设计说明一致）。
-      # 误报逃生口：commit message 里加 [skip-content-check]。
       - name: Check content
-        if: ${{ !contains(github.event.head_commit.message || '', '[skip-content-check]') }}
+        if: steps.gate.outputs.skip != 'true'
         run: |
           python3 --version
           python3 scripts/check-content.py
