@@ -104,6 +104,13 @@ jobs:
       - name: Build
         run: hugo --gc --minify --logLevel info
 
+      # 站内死链：必须在 Build **之后**（要真的 public/），Upload 之前。
+      # 刻意不联网 —— CI 里只查站内，外链那半留给本地的 lychee（见 MAINTENANCE.local.md），
+      # 否则第三方站点抽风会把发布卡住。与上一步共用同一个逃生口。
+      - name: Check internal links
+        if: steps.gate.outputs.skip != 'true'
+        run: python3 scripts/check-links.py --public public
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5.0.0
         with:
