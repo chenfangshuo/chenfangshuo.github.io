@@ -266,6 +266,43 @@ const syncField = () => {
   syncCount(prev, h, h > prev)
 }
 
+// 窗口被拖动 / 贴边 / 换屏（W 变了）时重建雪场。**必须与上面那条"页面被撑高"的路分开**：
+// syncField 第一行就是 `if (h === docH) return`，而"只改宽度"时文档高度完全可能一点没变 ——
+// 那一下早退正好把这片最需要重算的情形跳过去。
+//
+// 实测（960→1920，首页 docH 2043 → 2620）：片数其实**补对了**（296 = 目标 296），
+// 但存量 115 片的 x 全留在 [0, 960)，补进来的 181 片又被 avoidVisible 塞在屏下
+// [2043, 2620) —— 结果屏内 70 片**全在左半边、右半边 0~1 片**，屏内密度只有期望的 69%。
+// 也就是说这一档坏掉的不是"片数"，是"横向分布"。
+//
+// 两处都按比例缩放，等价于"雪场跟着窗口一起拉伸"，而且保持密度均匀：
+//   x：存量粒子本来就该跟着画布宽度按比例挪。
+//   y：改宽度会让页面重排、文档高度跟着变。本站首页实测是**同向**的（变宽 960→1920 时
+//      docH 2043→2620 变高；变窄 1920→960 时 2620→2043 变矮 22%），也就是说**变窄**那一侧
+//      会有一批粒子越过新高度：它们会在**同一帧**全被 `p.y - p.r > docH` 回收，而
+//      RECYCLE_SPREAD 只把它们摊在文档顶端上方 250px 里 —— 实测 22 片（占存量 19%）一次砸
+//      下来，正是那段注释里记的"雪墙"。按比例压回 [0, h] 才不会砸；"只把越界的那批重分布到
+//      [0, h]"会挤成顶上一条带。融化中的那片要连 meltY 一起缩 —— 那是它重生时的落点。
+//      （注：变高那一侧不缩 y —— 见 docH 只增不减时新补的雪会均匀铺在整篇，最底下那条新长
+//        出来的窄带因此会略稀，几十秒内被回收循环抹平。）
+//
+// 补片这一下**刻意不用 avoidVisible**：藏到视口外会让屏内密度几十秒到几分钟都是错的
+// （首页 scrollY=0 时补的雪全落在看不见的屏下带里，屏内一片都补不上；长文章滚在 3000px 处
+// 按 docH/47px·s⁻¹ 推算是两分钟以上）。而"不让人看见雪冒出来"这个收益在这时候本来就已经没了
+// —— 存量雪花的 x 正在你眼前按比例挪。所以按首次铺场同一条规则，均匀铺满整篇。
+const resizeField = (prevW) => {
+  const h = PAGE_ANCHORED ? Math.max(H, document.documentElement.scrollHeight) : H
+  const kx = W / prevW
+  const ky = h < docH ? h / docH : 1
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i]
+    p.x *= kx
+    if (ky !== 1) { p.y *= ky; p.meltY *= ky }
+  }
+  docH = h
+  syncCount(-NEAR.radius, docH, false)
+}
+
 // 把首屏的雪逆推到视口上方，让它们从最顶端自然落进来（见 ENTER_SPAN）。只在首次铺场后
 // 调一次。后续补片（文档长高）落在屏幕下方，这里碰不到它们 —— 那些雪是给"往下滚"用的。
 const staggerFirstScreen = () => {
@@ -424,6 +461,7 @@ const onMouseLeave = () => { mouseNx = 0 } // 鼠标移出窗口 → 回到自�
 const onScroll = () => { scrollY = window.scrollY || window.pageYOffset || 0 }
 
 const onResize = () => {
+  const prevW = W
   W = window.innerWidth
   H = window.innerHeight
   // DPR 也可能因为窗口被拖到另一块屏而变 → 跟着重建贴图
@@ -438,7 +476,9 @@ const onResize = () => {
   canvas.style.width = `${W}px`
   canvas.style.height = `${H}px`
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0) // 之后一律按 CSS 像素作画，DPR 交给矩阵
-  syncField()
+  // 宽度变了 = 用户在缩放窗口（见 resizeField），否则就是"页面被撑高/变矮"
+  if (prevW > 0 && W !== prevW) resizeField(prevW)
+  else syncField()
 }
 
 const onVisibility = () => {
