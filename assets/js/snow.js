@@ -175,7 +175,13 @@ const readColor = () => {
 // 用贴图而不是每帧 ctx.createRadialGradient —— 渐变对象每帧新建会产生垃圾
 // （几百片 × 60fps 就是每秒上万个对象），而柔和边缘只需要算一次。
 const makeSprite = (rgb) => {
-  // 1.6 倍留白给渐变边缘，否则会被贴图边界切成硬边
+  // 1.6 倍**不是**"给渐变边缘留白"（原来的注释这么写，是错的）：渐变的终点 alpha 已经是 0，
+  // 而且 mid = size/2 让渐变的终点正好落在贴图的**内切圆**上 —— 外圈本来就是透明的，
+  // 不存在"被贴图边界切出硬边"这回事。它的真实作用是**把贴图做得比最大绘制尺寸大一档**：
+  //   贴图     = ceil(NEAR.radius × 2 × dpr × 1.6)
+  //   最大绘制 = NEAR.radius × 1.3 × 2 × dpr     （同层半径最大浮动到 1.3 倍）
+  // 比值 1.6/1.3 ≈ 1.23，所以每次 drawImage 都是**降采样**，边缘更干净。
+  // 删掉它比值就变成 0.77 —— 最大的那片近景雪花会被放大 1.3 倍，边缘发糊。
   const size = Math.ceil(NEAR.radius * 2 * dpr * 1.6)
   const c = document.createElement('canvas')
   c.width = c.height = size
@@ -359,8 +365,9 @@ const frame = (now) => {
   // 在底部回收 —— 否则屏幕下方那一段会被掏空，往下滚就没雪了。
   //
   // 「接住之后把它放回哪儿」决定了这件事会不会把密度搞歪，见 respawnFlake 的说明：
-  // 自己下落的放地面下方，被滚动推过界的放屏幕顶端上方。两者分开处理，才能既全部
-  // 接住、又不动上下两段的雪量。
+  // 落地时记下 p.meltY，融化完**在原地继续下落** —— 不搬家，密度就不受影响。
+  // （曾经写成"自己下落的放地面下方、被滚动推过界的放屏幕顶端上方"，那是**被否掉的方案**：
+  //   两种放法都实测过，分别把密度搞成屏内 35% 和 249%、文档底部 0.00×，别再改回去。）
   groundY = PAGE_ANCHORED ? Math.min(docH, scrollY + H) : H
 
   const gy = groundY - top // 融化线在屏幕上的位置（= H，除非已经滚到文档最底）
@@ -631,7 +638,10 @@ export const initSnow = () => {
       rgb: spriteRgb, count: particles.length, W, H, docH, scrollY, dpr, running,
       melting: particles.reduce((n, p) => n + (p.melt >= 0 ? 1 : 0), 0),
       groundY,
-      // 融化线在屏幕上的位置。负 = 在屏幕上方；> H = 在屏幕下方（向上滚时就是这种）
+      // 融化线在屏幕上的位置 —— 它**恒等于 H**：groundY = min(docH, scrollY + H)，而
+      // scrollY + H ≤ scrollHeight ≤ docH，相减之后永远是 H（只有 docH 还是陈旧值的那一瞬间
+      // 例外）。原注释写成"负 = 在屏幕上方；> H = 在屏幕下方（向上滚时就是这种）"，那是更早一版
+      // 地面取文档底部时的说法，早已不成立。留着它是给"地面到底贴着哪儿"当自检用的。
       groundScreenY: groundY - (PAGE_ANCHORED ? scrollY : 0),
       // 把关键常量也报出来，好让验证脚本拿**实际生效的值**去算期望值。
       // （踩过：改完常量没重新构建就去测，脚本却用硬编码的期望值判定"通过"，
