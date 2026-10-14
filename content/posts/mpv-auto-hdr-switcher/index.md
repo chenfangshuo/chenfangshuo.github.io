@@ -63,6 +63,17 @@ Windows 的 HDR 是个**全局开关**：开着的时候桌面、浏览器、SDR
 
 装完播一部 HDR 片即可验证，正常情况下不需要再做任何事。
 
+### 配套的 mpv 设置
+
+脚本只管**系统层**的总开关。画面本身是不是 HDR 信号，由 mpv 的视频输出决定 —— 如果切到 HDR 后画面发灰、发白、颜色不对，多半是 mpv 还在按 SDR 输出，照自己用的那个输出模块补一行就行：
+
+| 视频输出 | 加进 `mpv.conf` |
+| :--- | :--- |
+| `vo=gpu`（mpv 默认） | `d3d11-output-csp=pq` |
+| `vo=gpu-next` | `target-colorspace-hint=yes` |
+
+后者就是上一篇[我的 MPV 配置](/my-mpv-config/)里用的那个。这两个选项在不同 mpv 版本里的默认值和取值不太一样，以自己那份为准（`mpv --list-options` 能看到本机支持哪些）。画面正常就不用动。
+
 ### 调参
 
 只需要改 `auto-hdr.lua` 顶部的 `options`：
