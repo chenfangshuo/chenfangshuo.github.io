@@ -501,7 +501,7 @@ const teardown = () => {
   window.removeEventListener('load', onThemeChange)
   document.removeEventListener('mouseleave', onMouseLeave)
   document.removeEventListener('visibilitychange', onVisibility)
-  mqlReduce.removeEventListener('change', onReduceChange)
+  // ⚠️ 这里**故意不摘** mqlReduce 的 change 监听 —— 理由见下面那行注册处。
   mqlDark.removeEventListener('change', onThemeChange)
   themeObserver.disconnect()
   fieldObserver.disconnect()
@@ -510,6 +510,17 @@ const teardown = () => {
   particles = []
   window.fixitSnow = undefined
 }
+
+// ⚠️ 减少动效的监听**只绑一次，而且不能被 teardown 摘掉** —— 它是唯一能重新开场的路径：
+//   · 载入时就是"减少动效"：initSnow() 会在下面直接 return，不在这里绑就没人接后面的"关掉"；
+//   · 运行中切成"减少动效"：teardown() 收摊 —— 此时若把监听一起摘了，切回来就再也起不来。
+//     （踩过：原来这行在 initSnow 末尾、teardown 里又摘一次，"运行中切换也会重新初始化"
+//       这句只对"收摊"成立，重新开场那半边是永远不成立的。）
+// 模块只在页面载入时求值一次，所以绑一次就够：既不放 initSnow，也不进 teardown 的清理清单。
+// 安全性：onReduceChange({matches:true}) 落在"从未初始化"的状态上只是把 teardown 跑一遍，
+// 里面全是幂等操作（stop / removeEventListener / observer.disconnect / canvas && canvas.remove），
+// 所以移动端（pointer: coarse，永不启动）也照绑无妨。
+mqlReduce.addEventListener('change', onReduceChange)
 
 export const initSnow = () => {
   // 尊重 prefers-reduced-motion：与 custom.scss 第 4、5 节同一取舍 —— 直接不开
@@ -532,6 +543,10 @@ export const initSnow = () => {
   // 浏览器恢复滚动位置时，一上来就该是对的位置，否则整场雪会先滑一下
   onScroll()
   prevScrollY = scrollY // 免得第一帧算出一个巨大的 dScroll 把全场雪都判成"滚过去的"
+  // mouseNx 是唯一不会在下面被重设的状态：减少动效切回来会重开场，不归零的话上次鼠标停在
+  // 右边缘就会让新开场的雪直接满风力吹（实测修好"切回来起不来"之后量到 meanVx = +17.95 px/s，
+  // 正好是 nx(0.997) × MOUSE_WIND(0.3) × SPEED(60)），直到下一次 mousemove 才纠正。
+  mouseNx = 0
   docH = PAGE_ANCHORED ? Math.max(H, document.documentElement.scrollHeight) : H
   groundY = PAGE_ANCHORED ? Math.min(docH, scrollY + H) : H // 一上来地面就贴着屏幕底边
   spriteRgb = readColor()
@@ -551,7 +566,7 @@ export const initSnow = () => {
   window.addEventListener('load', onThemeChange) // CSS 万一晚于本脚本生效，兜一次
   document.addEventListener('mouseleave', onMouseLeave)
   document.addEventListener('visibilitychange', onVisibility)
-  mqlReduce.addEventListener('change', onReduceChange)
+  // 减少动效那条在模块层绑过了（见 teardown 下面），这里不重复绑
   mqlDark.addEventListener('change', onThemeChange)
   themeObserver.observe(document.documentElement, {
     attributes: true,
