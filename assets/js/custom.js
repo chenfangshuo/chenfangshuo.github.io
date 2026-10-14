@@ -1,3 +1,10 @@
+/*!
+ * 站点自定义脚本 — https://forsure.live
+ * Copyright (c) 2026 Chen Fangshuo
+ * SPDX-License-Identifier: MIT · 完整许可文本见仓库根目录 LICENSE
+ * （legal comment 形式，压缩后仍会留在 custom.min.<hash>.js 里）
+ */
+
 /**
  * 站点自定义脚本 — forsure.live
  * 由 FixIt 自动加载（assets/js/custom.js）

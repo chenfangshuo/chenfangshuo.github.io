@@ -1,3 +1,8 @@
+// 许可声明写成**单行** loud comment：Hugo 的 CSS 压缩器会保留 /*! 开头的注释，但会把换行
+// 折叠掉，多行写法的产物会变成 "/*!* 第一行\n* 第二行…" 那种排版事故。这一行会原样进
+// custom.min.<hash>.css。
+/*! 自定义样式 — https://forsure.live · Copyright (c) 2026 Chen Fangshuo · SPDX-License-Identifier: MIT · 许可全文见仓库根目录 LICENSE */
+
 /// =============================================================================
 /// 自定义样式 — forsure.live
 /// 由 FixIt 自动加载（assets/scss/custom.scss）

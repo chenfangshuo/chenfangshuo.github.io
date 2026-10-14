@@ -1,3 +1,14 @@
+/*!
+ * 雪花特效（Canvas 实现）— https://forsure.live
+ * Copyright (c) 2026 Chen Fangshuo
+ * SPDX-License-Identifier: MIT · 完整许可文本见仓库根目录 LICENSE
+ *
+ * 本文件为整份重写，不含早先那份 DHTML Snowstorm（Scott Schiller，MIT）的代码，
+ * 因此不继承其版权声明；替换的缘由与全部实测见下面文件头与 MAINTENANCE.local.md。
+ * 用 legal comment 形式（/*! 起头）而不是行注释，是为了让 esbuild 压缩之后
+ * 这段声明仍留在产出的 custom.min.<hash>.js 里。
+ */
+
 /**
  * 雪花特效 — forsure.live（Canvas 实现，替换 DHTML Snowstorm 1.44）
  *

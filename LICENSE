@@ -1,0 +1,64 @@
+MIT License
+
+Copyright (c) 2026 Chen Fangshuo
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+===============================================================================
+适用范围 —— 上面那段 MIT **不覆盖整个仓库**，请按下表理解
+===============================================================================
+
+适用（作者编写、愿以 MIT 授权）：
+
+  assets/js/**     snow.js（雪花特效）、custom.js（首页一言）等
+  assets/scss/**   站点自定义样式
+  layouts/**       站点级模板覆盖
+  scripts/**       构建包装、内容自检脚本
+  archetypes/**  data/**  hugo.toml
+
+不适用：
+
+  content/**       文章与图片等内容。版权归作者所有，**不在 MIT 授权范围内**；
+                   转载 / 引用请注明出处并链回原文。
+                   （文章页脚显示的 copyright 与这条一致。）
+
+  static/images/** 站点图片（头像、横幅、友链图标等）。同样不在 MIT 授权范围内；
+                   其中友链图标属于各友链站点自己。
+
+  以下是随仓库分发的第三方组件，各自适用其原许可：
+
+  * assets/lib/fontawesome-free/**、static/lib/webfonts/**
+      Font Awesome Free 7.3.1（本站按用到的字形做了子集化）
+      图标 CC BY 4.0 / 字体 SIL OFL 1.1 / 代码 MIT，Copyright Fonticons, Inc.
+      https://fontawesome.com/license/free
+
+  * assets/lib/twikoo/**
+      Twikoo 2.0.13，MIT，Copyright (c) 2020-present iMaeGoo
+      https://github.com/imaegoo/twikoo/blob/master/LICENSE
+
+  * themes/FixIt/**
+      FixIt 主题（git submodule），MIT
+      Copyright (c) 2018 LIUZHICHAO.COM
+      Copyright (c) 2019-2020 DILLONZQ.COM
+      Copyright (c) 2021-present Lruihao
+      https://github.com/hugo-fixit/FixIt/blob/main/LICENSE
+
+沿革说明：assets/js/snow.js 是从零重写的 Canvas 实现，替换掉了早先那个
+DHTML Snowstorm 1.44（Scott Schiller，MIT）。那份实现的代码本仓库已不再包含，
+因此也不继承它的版权声明；这里只作出处记录。
