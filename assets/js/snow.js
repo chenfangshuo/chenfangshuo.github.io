@@ -63,10 +63,18 @@ const PAGE_ANCHORED = true   // ★开关：true = 雪花锚定在页面上（�
 const SPEED = 60             // 近景下落速度：1000px 视口约 17s 穿屏（旧版约 110px/s）
 const MOUSE_WIND = 0.3       // 鼠标风上限 = 0.3 × SPEED = 18 px/s（旧系数 0.6 太猛）
 const BASE_DRIFT = 4         // 每片自带的水平漂移 ±4 px/s，让居中区域也不是笔直下落
-// 密度。注意它是**按面积**算的，所以屏幕越大雪越多：1440×900 一屏约 108 片，
-// 而 4K（3840×2160）一屏约 488 片 —— 面积是 6.4 倍。觉得还是多就继续调大这个数
+// 密度。注意它是**按面积**算的，所以屏幕越大雪越多：1440×900 一屏约 76 片
+// （1440×900 ÷ 17000 = 76.2），而 4K（3840×2160）一屏约 488 片 —— 面积是 6.4 倍。
+// 觉得还是多就继续调大这个数
 // （17000 → 24000 约再少三成），整篇文档与每屏都按同一密度，改一个数就够。
 const AREA_PER_FLAKE = 17000 // 约每 17000 平方像素一片（按**整篇文档**的面积算）
+// ⚠️ 触顶后的已知限制（2026-10-17 第三方审查提出，核对属实）：达到上限后文档继续长高，
+//    新增区域**不会**补片（目标数量不再增加），要等回收流把粒子带到新区域；文档变矮时
+//    屏幕上方那一段也会暂时低于目标密度（见 syncField 的说明）。
+//    本站不常触发：1440 宽下最长文章 16933px（目标 1434 片），要触顶得 docH > 35417px，
+//    只有加载瞬间代码块展开态（47297px）会触顶；4K 宽（3840）下 16933px 的文章会常态
+//    触顶（目标 3824）。彻底解决要把"数量预算"与"空间覆盖"拆开 —— 目前不做，见
+//    MAINTENANCE 第七版。
 const MAX_FLAKES = 3000      // 上限，防止 4K + 长文章时画爆（4K × 8432px 文章实测 1905 片）
 const MAX_DPR = 2            // DPR 封顶 2：再高的物理密度看不见，像素/内存却翻倍
 const MAX_DT = 0.05          // dt 上限 50ms：切标签页回来时不要瞬移一整屏
@@ -92,7 +100,8 @@ const MIN_FRAME_MS = 1000 / MAX_FPS - 2 // 容差 2ms：正好 60Hz 的屏不会
 //   做法（逆推初始位置）：首次铺场后，给首屏的雪各生成一个期望进场时刻 t_enter，
 //   再按它**自己的落速**反推该挂在多高：`p.y = 视口顶 - p.vy * t_enter`。
 //   于是每片雪**恰好在 t_enter 那一刻穿过视口上沿** —— 快雪挂得高、慢雪挂得低，上沿的
-//   雪通量在数学上严格恒定（不会几片扎堆一起砸下来），而且它们是真在落，不是被"揭开"的。
+//   雪通量在**期望上**恒定（进入时刻是独立的随机采样，仍可能有小幅扎堆；真正在数学上
+//   严格的是"前沿推进速度 = 雪花自己的落速"，与采样无关），而且它们是真在落、不是被"揭开"的。
 //
 //   ⚠️ T（下面 span 的值）不能随手取，两个数都得算过：
 //     · 摊的**对象是首屏那一批**，不是整池。整池 710 片在 6 秒里穿过首屏 = 29.7 倍常态通量，
@@ -176,10 +185,33 @@ const mqlDark = window.matchMedia('(prefers-color-scheme: dark)')
 // 经 getComputedStyle(canvas).color 读才被解析成当前主题的 rgb()。
 // 所以 canvas 兼作"取色探针"，不必多造元素。主题一变这里读到的就跟着变。
 // -----------------------------------------------------------------------------
+// 快路径：Chrome 对 legacy rgb/rgba 的计算值序列化就是 rgb()/rgba()，直接取。
+// **不能再"抓前三个数字"兜底**：将来若主题改用 color(display-p3 1 1 1) / oklch(...)，
+// 那串里的数字不是 RGB（前者会被抓成 3,1,1）。其余格式交给浏览器解析：在 1×1 canvas
+// 上 fillStyle + getImageData，拿回 sRGB 字节。只在初始化 / 主题切换时跑，不进动画循环。
+// （忽略源颜色的 alpha —— 本站的雪花颜色是不透明的，透明度由贴图自己的渐变给。）
+let colorCtx
 const readColor = () => {
-  const m = getComputedStyle(canvas).color.match(/\d+(?:\.\d+)?/g)
+  const c = getComputedStyle(canvas).color
+  const m = c.match(/^rgba?\(\s*(\d+(?:\.\d+)?)[ ,]+(\d+(?:\.\d+)?)[ ,]+(\d+(?:\.\d+)?)/)
+  if (m) return `${m[1]}, ${m[2]}, ${m[3]}`
+  try {
+    if (!colorCtx) {
+      const off = document.createElement('canvas')
+      off.width = off.height = 1
+      colorCtx = off.getContext('2d', { willReadFrequently: true })
+    }
+    if (colorCtx) {
+      colorCtx.clearRect(0, 0, 1, 1)
+      colorCtx.fillStyle = '#000' // 解析失败时赋值会被忽略，先把上一次的颜色冲掉
+      colorCtx.fillStyle = c
+      colorCtx.fillRect(0, 0, 1, 1)
+      const d = colorCtx.getImageData(0, 0, 1, 1).data
+      return `${d[0]}, ${d[1]}, ${d[2]}`
+    }
+  } catch { /* 走兜底 */ }
   // 兜底给中性灰。绝不能把 light-dark(...) 字面量交给 canvas。
-  return m ? m.slice(0, 3).join(', ') : '180, 190, 203'
+  return '180, 190, 203'
 }
 
 // 预渲染一张"柔和圆点"贴图：径向渐变，中心实、边缘全透明。
@@ -274,6 +306,14 @@ const syncCount = (yMin, yMax, avoidVisible) => {
     }
   }
   const want = targetCount()
+  // 投放区间退化（屏下已经没有空间，或 B 被夹到 h）：别把新片堆成一条线。
+  // 改放到视口上方看不见的区域；文档顶部之外（-RECYCLE_SPREAD .. -r）本来就是底部
+  // 回收的落点，放在那儿等价于"刚被回收一次"，会随正常的下降流回到场里。
+  if (particles.length < want && hi - lo < 0.5) {
+    const above = (PAGE_ANCHORED ? scrollY : 0) - NEAR.radius
+    if (above > 0) { lo = Math.max(0, above - H); hi = above }
+    else { lo = -RECYCLE_SPREAD; hi = -NEAR.radius }
+  }
   while (particles.length < want) particles.push(makeFlake(lo, hi))
   if (particles.length > want) {
     // 多出来的**等比例随机抽稀**。不能 `particles.length = want` 删尾巴：syncField
@@ -321,6 +361,8 @@ const shrinkField = (prev, h) => {
     const p = particles[i]
     // 屏幕内 / 屏幕上方：原样保留。**融化中的那片也要留** —— 它正贴着地面播动画，
     // 抽掉就是肉眼可见地凭空消失（它的 y 在 B 附近，本来多半也会落进上面那一支）。
+    // 承诺边界：紧随其后的 syncCount 只会因取整差额随机抽掉极少数；`resizeField` 那条
+    // **宽度变窄**的路径不受这个承诺保护 —— 那里的目标密度本身变了，必须一次抽掉一大批。
     if (p.melt >= 0 || p.y <= B) { particles[j++] = p; continue }
     if (Math.random() >= k) continue                // 抽稀（与压缩同比例，密度不变）
     p.y = B + (p.y - B) * k
@@ -338,8 +380,12 @@ const syncField = () => {
   if (h < prev) shrinkField(prev, h)
   docH = h
   // 长高了：只给新长出来的那一条按同样密度补片（见 syncCount 的说明）
-  // 变矮了：shrinkField 已经把密度和片数都对齐了，这里只处理抽稀带来的 ±几片随机偏差；
-  //         补也只补在屏幕底下（B..h），**不要**再把屏内的雪抬一次
+  // 变矮了：shrinkField 已经把密度和片数都对齐了，这里只处理抽稀的取整偏差（非封顶时
+  //         是 ±十几片）；补也只补在屏幕底下（B..h），**不要**再把屏内的雪抬一次。
+  //         ⚠️ 若建场时被 MAX_FLAKES 封顶（n 小于面积目标），shrinkField 保下来的密度
+  //         也低于目标 —— 这里会一次补一大笔、全在屏下，屏幕上方那段要等回收流回填
+  //         （本站实测 60s 内到稳态）。审查里"首屏只剩 27 片"就是这个场景的静态值，
+  //         但它不是永久状态。
   if (h < prev) syncCount(Math.min(PAGE_ANCHORED ? scrollY + H : H, h), h, false)
   else syncCount(prev, h, true)
 }
@@ -414,6 +460,10 @@ const frame = (now) => {
   // 渲染帧率封顶（见 MAX_FPS）：还没到下一帧的时刻就整帧跳过。**连 last 都不更新** ——
   // dt 因此记的是"距上一次真正渲染"的时长，物理照旧按真实时间推进，速度与刷新率无关
   // 这条保证不受影响（只是位移每次多走一点：60fps 下近景每帧 1px）。
+  // 例外是帧间隔超过 MAX_DT(50ms) 时：多出来的那段时间会被丢掉，那一帧的动画会略慢于
+  // 真实时间 —— 这是"切回标签页不要瞬移一整屏"的有意取舍，正常帧率下碰不到。
+  // ⚠️ 所以"封顶 60"**不严格**：60~68Hz 的屏每帧间隔都 ≥ MIN_FRAME_MS（66Hz 是 15.15ms），
+  //    会原样每帧画（66Hz → 66fps）。严格 60 需要时间累加器，这里没这么做。
   // 副作用是渲染节奏会被量化到刷新率的整数分之一（120Hz→60、144Hz→48、90Hz→45），
   // 那是好事：每帧显示同样多条 vsync，比"不均匀的 60fps"更匀。
   if (now - last < MIN_FRAME_MS) return
@@ -425,7 +475,10 @@ const frame = (now) => {
   ctx.clearRect(0, 0, W, H)
 
   const top = PAGE_ANCHORED ? scrollY : 0 // 视野顶端在文档里的位置
-  const dScroll = scrollY - prevScrollY    // 本帧的滚动量，用来判断越界是不是滚动推的
+  // 本帧的滚动量，用来判断越界是不是滚动推的。**非锚定模式下滚动不改变粒子位置**，
+  // 所以必须为 0 —— 否则向上滚会把"本来就在屏幕下方"的粒子误判成刚越过底边
+  // （向下滚则会漏判真正的触底）。
+  const dScroll = PAGE_ANCHORED ? scrollY - prevScrollY : 0
   prevScrollY = scrollY
 
   // ---- 地面 = 屏幕底边，永远是 ----
@@ -500,8 +553,13 @@ const frame = (now) => {
     //
     // 本来就位于屏幕下方的雪永远不会命中（prevSy 已经越界），它们继续往下落、
     // 到文档底部才回收 —— 这正是"滚下去还有雪"的来源。
+    //
+    // ⚠️ 还要要求**上一帧确实在屏幕上**：`prevSy + p.r > 0`（底边没跑到视野上沿之上）。
+    //    没有这一条时，一次 Home / 锚点跳转（dScroll = 整个跳转距离）会把它**扫过的
+    //    整段文档**都判成"被滚动推过底边" —— 实测从 6000px 跳回顶部，约 500 片同时
+    //    进入融化并画到地面。连续滚动时 dScroll 只有几 px，这一条不会误伤。
     const prevSy = sy - p.vy * dt + dScroll
-    if (sy + p.r > H && prevSy + p.r <= H) {
+    if (sy + p.r > H && prevSy + p.r <= H && prevSy + p.r > 0) {
       p.meltY = p.y // 记住融化的位置，融化完回这儿继续落（见 respawnFlake）
       p.melt = 0
       continue
@@ -535,8 +593,9 @@ const onMouse = (e) => {
 
 const onMouseLeave = () => { mouseNx = 0 } // 鼠标移出窗口 → 回到自然漂移
 
-// 缓存滚动量。不写成"每帧读 window.scrollY"是为了不制造强制样式刷新：
-// 本文件从不写 DOM 样式，于是布局永远是干净的，每帧读 scrollY 反而会把它弄脏。
+// 缓存滚动量。读 scrollY 本身**不会**把布局弄脏；但页面上别的脚本/动画可能每帧把布局
+// 弄脏，那时在循环里读 scrollY 就会触发一次同步布局（强制 flush）。本文件不写样式，
+// 缓存下来等于零成本，何必赌页面别处是干净的。
 const onScroll = () => { scrollY = window.scrollY || window.pageYOffset || 0 }
 
 const onResize = () => {
@@ -551,7 +610,9 @@ const onResize = () => {
   }
   canvas.width = Math.round(W * dpr)
   canvas.height = Math.round(H * dpr)
-  // 显式写像素尺寸：让本文件不依赖 .snow-canvas 的 width/height 规则，单独也能跑
+  // 显式写像素尺寸：让本文件不依赖 .snow-canvas 的 width/height 规则。
+  // ⚠️ 但**定位/层叠/穿透仍由 CSS 提供**（custom.scss 第 8 节：position: fixed、inset: 0、
+  //    pointer-events: none、z-index: 1）—— 缺了这些，画布会进入文档流并把页面撑高。
   canvas.style.width = `${W}px`
   canvas.style.height = `${H}px`
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0) // 之后一律按 CSS 像素作画，DPR 交给矩阵
@@ -587,7 +648,10 @@ const onThemeChange = () => {
 
 const themeObserver = new MutationObserver(onThemeChange)
 
-// 文档高度变化（懒加载图片撑高页面）时补片
+// 文档高度变化（懒加载图片撑高页面）时补片。
+// 观察的是 body 的盒子尺寸、读的却是 documentElement.scrollHeight —— 两者在本站一致，
+// 因为页面是常规文档流，body 高度随内容长。若将来出现"body 定高 + 绝对定位溢出"，
+// 观察 body 不会触发；那种布局要另加同步入口（只观察根元素也没用：根元素尺寸 = 视口）。
 const fieldObserver = new ResizeObserver(syncField)
 
 // -----------------------------------------------------------------------------
@@ -600,7 +664,9 @@ const stop = () => {
 }
 
 const start = () => {
-  if (running) return
+  // teardown() 之后 canvas/ctx 都是空的；旧调试句柄（保存过 window.fixitSnow 的调用方）
+  // 仍可能调 start() —— 别让 rAF 起在空 ctx 上（下一帧 frame() 会在 ctx.clearRect 抛错）。
+  if (!ctx || running) return
   running = true
   last = performance.now()
   raf = requestAnimationFrame(frame)
@@ -659,6 +725,8 @@ export const initSnow = () => {
   canvas.setAttribute('aria-hidden', 'true')
   document.body.appendChild(canvas) // 先入文档：getComputedStyle 才会返回解析后的 color
   ctx = canvas.getContext('2d')
+  // 极罕见（上下文数量超限等）：拿不到就清掉这次创建的画布退出，别留半初始化状态。
+  if (!ctx) { canvas.remove(); canvas = undefined; return }
 
   W = window.innerWidth
   H = window.innerHeight
