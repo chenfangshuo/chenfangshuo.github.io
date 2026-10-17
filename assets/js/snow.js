@@ -240,10 +240,12 @@ const makeFlake = (yMin, yMax) => {
 // 那样直接在那儿冒出来会"凭空出现"，所以挪到屏幕底边之下。
 const respawnFlake = (p) => {
   p.y = p.meltY
-  if (PAGE_ANCHORED) {
-    const sy = p.y - scrollY
-    if (sy > -p.r && sy < H + p.r) p.y = scrollY + H + p.r
-  }
+  // 融化时底边刚越过屏幕底边（p.y ≈ 屏幕底边 - p.r，还在屏内），所以重生点要挪到
+  // 屏幕底边之下，否则融化完会原地闪一下。**两种模式都要做**：非锚定时屏幕坐标
+  // 就是 p.y 本身（top = 0），原来的 if (PAGE_ANCHORED) 把这一支漏掉了。
+  const top = PAGE_ANCHORED ? scrollY : 0
+  const sy = p.y - top
+  if (sy > -p.r && sy < H + p.r) p.y = top + H + p.r
 }
 
 // 只在数量变化时增删，**不重铺** —— 重铺会让所有雪花瞬移一下。
@@ -263,13 +265,29 @@ const syncCount = (yMin, yMax, avoidVisible) => {
   if (avoidVisible) {
     const top = PAGE_ANCHORED ? scrollY : 0
     if (hi > top - NEAR.radius && lo < top + H + NEAR.radius) {
-      lo = top + H + NEAR.radius
+      // 夹到 yMax：屏下可能已经没有空间（文档只长高一点点，或滚动位置还没被浏览器
+      // 夹回文档内）。不夹的话原样放在 docH 之外，这批片下落一帧就会被回收 ——
+      // 虽然这条分支最多只涉及 0~1 片（增长量 < NEAR.radius 才会退化），但
+      // "绝不把新片铺到 docH 之外"值得当不变量守住。
+      lo = Math.min(top + H + NEAR.radius, yMax)
       hi = Math.max(lo, yMax)
     }
   }
   const want = targetCount()
   while (particles.length < want) particles.push(makeFlake(lo, hi))
-  if (particles.length > want) particles.length = want
+  if (particles.length > want) {
+    // 多出来的**等比例随机抽稀**。不能 `particles.length = want` 删尾巴：syncField
+    // 补的片是 append 到末尾、集中在文档底部（shrinkField 之后数组还会变成"上层在前、
+    // 下层在后"），删尾巴等于专挑下半篇抽，密度立刻歪掉。
+    // 标准做法：每个位置按「剩余名额 / 剩余候选」决定去留，原地压实，结束时恰好 want 片。
+    const n = particles.length
+    let kept = 0
+    let j = 0
+    for (let i = 0; i < n; i++) {
+      if (Math.random() * (n - i) < want - kept) { particles[j++] = particles[i]; kept++ }
+    }
+    particles.length = j
+  }
 }
 
 // 按比例缩放整场雪的纵向坐标。**只用于窗口宽度变化**（resizeField）：那时横向本来就在
@@ -343,8 +361,11 @@ const syncField = () => {
 //      RECYCLE_SPREAD 只把它们摊在文档顶端上方 250px 里 —— 实测 22 片（占存量 19%）一次砸
 //      下来，正是那段注释里记的"雪墙"。按比例压回 [0, h] 才不会砸；"只把越界的那批重分布到
 //      [0, h]"会挤成顶上一条带。融化中的那片要连 meltY 一起缩 —— 那是它重生时的落点。
-//      （注：变高那一侧不缩 y —— 见 docH 只增不减时新补的雪会均匀铺在整篇，最底下那条新长
-//        出来的窄带因此会略稀，几十秒内被回收循环抹平。）
+//      （注：变高那一侧**故意不缩 y**。2026-10-17 复核过"变高也缩 y"的提议：缩了密度立刻
+//        均匀，但屏内粒子会随文档纵向拉伸（实测首页 2043→2620 时最多下移约 250px =
+//        28% 屏高），与刚修掉的"向上抽半屏"是同一类运动；不缩的代价只是新长出的窄带暂时
+//        偏稀（960→1920 实测约 18% 的文档只有半密度），回收循环约 1 分钟抹平。
+//        两者相权，选"不动屏内的雪"，别再改回去。）
 //
 // 补片这一下**刻意不用 avoidVisible**：藏到视口外会让屏内密度几十秒到几分钟都是错的
 // （首页 scrollY=0 时补的雪全落在看不见的屏下带里，屏内一片都补不上；长文章滚在 3000px 处
@@ -627,7 +648,11 @@ export const initSnow = () => {
   // Safari 的 UA），按宽度判断又会在窄窗口的桌面上误伤。(pointer: coarse) 描述的是
   // "主指针是触摸"，正是本意，且不怕 resize。
   if (window.matchMedia('(pointer: coarse)').matches) return
-  if (running) return
+  // 有画布 = 之前被 stop() 停过（window.fixitSnow.stop，性能探针用）但没拆 —— 接着跑即可。
+  // 这行是防御性的：当前没有任何路径会在 canvas 存在时再调本函数（reduce 那条往返必然
+  // 先经过 teardown 把画布清掉），但别让将来多一个入口就多一份 canvas 和一套监听。
+  // （start() 自带 running 判断，所以原来的 if (running) return 被它包含了。）
+  if (canvas) { start(); return }
 
   canvas = document.createElement('canvas')
   canvas.className = 'snow-canvas'
