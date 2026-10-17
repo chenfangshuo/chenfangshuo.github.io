@@ -272,14 +272,31 @@ const syncCount = (yMin, yMax, avoidVisible) => {
   if (particles.length > want) particles.length = want
 }
 
+// 按比例缩放整场雪的纵向坐标。**只该在文档变矮时用**（见 syncField / resizeField）：
+// 绝不能让 y > docH 的那批留到下一帧 —— 它们会在同一帧全部命中底部回收，
+// 被 RECYCLE_SPREAD 摊到文档顶端上方，然后一起落进首屏，就是"顶部雪墙"。
+const scaleY = (k) => {
+  if (k === 1) return
+  for (let i = 0; i < particles.length; i++) {
+    particles[i].y *= k
+    particles[i].meltY *= k // 融化中那片重生时的落点，不缩就会跳回旧位置
+  }
+}
+
 // 文档高度会变（懒加载的图片、折叠面板）。用它重建"场"的尺寸。
 const syncField = () => {
   const h = PAGE_ANCHORED ? Math.max(H, document.documentElement.scrollHeight) : H
   if (h === docH) return
   const prev = docH
+  // 变矮：**必须先按比例压缩 y 再截断**（见 scaleY）。实测 /double-pulse-test-at-home/：
+  // 1500 行的代码块从展开态过渡到预览，scrollHeight 在 0.5s 内 47297 → 16933
+  // （FixIt 的 .code-wrapper 有 transition: height 0.5s）。只截断的话约 850 片停在
+  // y > 新 docH，下一帧一起被回收 → 屏内 923 片（稳态 76），顶部 200px 带峰值 649，
+  // 要几分钟才散开。压缩之后同一场景峰值 39~51（tools/snow-shrink.mjs 的 5 条断言）。
+  if (h < prev) scaleY(h / prev)
   docH = h
   // 长高了：只给新长出来的那一条按同样密度补片（见 syncCount 的说明）
-  // 变矮了：syncCount 会靠截断把多余的削掉
+  // 变矮了：截断到新面积对应的片数
   syncCount(prev, h, h > prev)
 }
 
@@ -311,11 +328,8 @@ const resizeField = (prevW) => {
   const h = PAGE_ANCHORED ? Math.max(H, document.documentElement.scrollHeight) : H
   const kx = W / prevW
   const ky = h < docH ? h / docH : 1
-  for (let i = 0; i < particles.length; i++) {
-    const p = particles[i]
-    p.x *= kx
-    if (ky !== 1) { p.y *= ky; p.meltY *= ky }
-  }
+  for (let i = 0; i < particles.length; i++) particles[i].x *= kx
+  scaleY(ky) // 变矮时压缩 y/meltY，与 syncField 共用同一套规则
   docH = h
   syncCount(-NEAR.radius, docH, false)
 }
