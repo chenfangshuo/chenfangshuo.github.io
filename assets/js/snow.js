@@ -272,9 +272,9 @@ const syncCount = (yMin, yMax, avoidVisible) => {
   if (particles.length > want) particles.length = want
 }
 
-// 按比例缩放整场雪的纵向坐标。**只该在文档变矮时用**（见 syncField / resizeField）：
-// 绝不能让 y > docH 的那批留到下一帧 —— 它们会在同一帧全部命中底部回收，
-// 被 RECYCLE_SPREAD 摊到文档顶端上方，然后一起落进首屏，就是"顶部雪墙"。
+// 按比例缩放整场雪的纵向坐标。**只用于窗口宽度变化**（resizeField）：那时横向本来就在
+// 跟着窗口一起拉伸，纵向一起缩放是"雪场跟着窗口拉伸"的一部分。页面**自己**变矮
+// （代码块折叠、字体回退……）不能走这条 —— 见 shrinkField。
 const scaleY = (k) => {
   if (k === 1) return
   for (let i = 0; i < particles.length; i++) {
@@ -283,21 +283,47 @@ const scaleY = (k) => {
   }
 }
 
+// 文档变矮：只压缩**屏幕底边以下**那一段，并按同一比例抽稀。
+//
+// ⚠️ 为什么不能整场乘 h/prev（上一版就是，踩了）：/double-pulse-test-at-home/ 的代码块
+// 折叠时 scrollHeight 是分 ~10 步过渡的（FixIt 的 .code-wrapper 有 transition: height 0.5s，
+// 实测 47297 → 16933 走 0.5s）。每一步都把屏幕里/屏幕附近的雪一起往上抬一次 ——
+// 实测可见带内 30ms 上跳 **351px**，肉眼看就是 0.5s 内雪从屏幕下方向上"抽"半屏。
+//
+// 正确做法：屏幕底边 B 以上**一点不动**。那里的密度本来就是对的（长 B 的区间里有
+// B·n/prev 片 = n/prev，正好等于目标密度）；只把越界的 [B, prev] 线性压到 [B, h]，
+// 存活概率取压缩比 (h-B)/(prev-B) —— 压缩 + 同比例抽稀之后密度仍是 n/prev，
+// 片数正好落到 n·h/prev = 新面积的目标值。被抽掉的都是屏幕下方看不见的片。
+const shrinkField = (prev, h) => {
+  const B = Math.min(PAGE_ANCHORED ? scrollY + H : H, h) // 屏幕底边（滚动到文档尾时夹到 h）
+  if (prev <= B) return
+  const k = Math.max(0, (h - B) / (prev - B))
+  let j = 0
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i]
+    // 屏幕内 / 屏幕上方：原样保留。**融化中的那片也要留** —— 它正贴着地面播动画，
+    // 抽掉就是肉眼可见地凭空消失（它的 y 在 B 附近，本来多半也会落进上面那一支）。
+    if (p.melt >= 0 || p.y <= B) { particles[j++] = p; continue }
+    if (Math.random() >= k) continue                // 抽稀（与压缩同比例，密度不变）
+    p.y = B + (p.y - B) * k
+    if (p.meltY > B) p.meltY = B + (p.meltY - B) * k
+    particles[j++] = p
+  }
+  particles.length = j
+}
+
 // 文档高度会变（懒加载的图片、折叠面板）。用它重建"场"的尺寸。
 const syncField = () => {
   const h = PAGE_ANCHORED ? Math.max(H, document.documentElement.scrollHeight) : H
   if (h === docH) return
   const prev = docH
-  // 变矮：**必须先按比例压缩 y 再截断**（见 scaleY）。实测 /double-pulse-test-at-home/：
-  // 1500 行的代码块从展开态过渡到预览，scrollHeight 在 0.5s 内 47297 → 16933
-  // （FixIt 的 .code-wrapper 有 transition: height 0.5s）。只截断的话约 850 片停在
-  // y > 新 docH，下一帧一起被回收 → 屏内 923 片（稳态 76），顶部 200px 带峰值 649，
-  // 要几分钟才散开。压缩之后同一场景峰值 39~51（tools/snow-shrink.mjs 的 5 条断言）。
-  if (h < prev) scaleY(h / prev)
+  if (h < prev) shrinkField(prev, h)
   docH = h
   // 长高了：只给新长出来的那一条按同样密度补片（见 syncCount 的说明）
-  // 变矮了：截断到新面积对应的片数
-  syncCount(prev, h, h > prev)
+  // 变矮了：shrinkField 已经把密度和片数都对齐了，这里只处理抽稀带来的 ±几片随机偏差；
+  //         补也只补在屏幕底下（B..h），**不要**再把屏内的雪抬一次
+  if (h < prev) syncCount(Math.min(PAGE_ANCHORED ? scrollY + H : H, h), h, false)
+  else syncCount(prev, h, true)
 }
 
 // 窗口被拖动 / 贴边 / 换屏（W 变了）时重建雪场。**必须与上面那条"页面被撑高"的路分开**：
