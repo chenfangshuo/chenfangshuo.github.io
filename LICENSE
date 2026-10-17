@@ -30,6 +30,8 @@ SOFTWARE.
   assets/scss/**   站点自定义样式
   layouts/**       站点级模板覆盖
   scripts/**       构建包装、内容自检脚本
+  content/posts/double-pulse-test-at-home/dpt_analyzer.py
+                   配套 DPT 分析脚本（文件头带 SPDX-License-Identifier: MIT）
   archetypes/**  data/**  hugo.toml
 
 不适用：
@@ -37,6 +39,8 @@ SOFTWARE.
   content/**       文章与图片等内容。版权归作者所有，**不在 MIT 授权范围内**；
                    转载 / 引用请注明出处并链回原文。
                    （文章页脚显示的 copyright 与这条一致。）
+                   例外：带 SPDX-License-Identifier: MIT 文件头的单个文件
+                   （目前为上面的 dpt_analyzer.py）以 MIT 授权。
 
   static/images/** 站点图片（头像、横幅、友链图标等）。同样不在 MIT 授权范围内；
                    其中友链图标属于各友链站点自己。

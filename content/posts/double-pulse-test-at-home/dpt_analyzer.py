@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# Copyright (c) 2026 Chen Fangshuo
+# SPDX-License-Identifier: MIT · 完整许可文本见仓库根目录 LICENSE
 """
 双脉冲测试（DPT）示波器 CSV 自动分析脚本
 ==========================================
@@ -24,7 +26,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy.integrate import cumulative_trapezoid
+# 用 SciPy 的 trapezoid，兼容 NumPy 1.x / 2.x（NumPy 1.x 没有 np.trapezoid）。
+from scipy.integrate import cumulative_trapezoid, trapezoid
 from scipy.signal import bilinear, lfilter, lfilter_zi
 
 
@@ -901,7 +904,7 @@ def estimate_qrr(
     m_int = (t >= timing.t_on2) & (t <= t_rr_end)
     if int(m_int.sum()) < 2:
         return None, t_rr_end, t_peak, truncated
-    q_c = float(np.trapezoid(np.maximum(id_on[m_int] - base, 0.0), t[m_int]))
+    q_c = float(trapezoid(np.maximum(id_on[m_int] - base, 0.0), t[m_int]))
     return q_c * 1e9, t_rr_end, t_peak, truncated
 
 
@@ -1302,39 +1305,68 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "  python dpt_analyzer.py --window manual --pre-ns 80 --post-ns 200 --no-show\n"
         ),
     )
-    p.add_argument("-c1", "--c1", type=Path, help="CH1 / VGS 的 CSV")
-    p.add_argument("-c2", "--c2", type=Path, help="CH2 / ID 的 CSV")
-    p.add_argument("-c3", "--c3", type=Path, help="CH3 / VDS 的 CSV")
-    p.add_argument("--data-dir", type=Path, default=Path(DEFAULT_DATA_DIR),
-                   help=f"自动扫描目录（默认 {DEFAULT_DATA_DIR}）")
-    p.add_argument("--out-dir", type=Path, default=Path(OUTPUT_DIR), help="输出目录")
-    p.add_argument("--export-csv", nargs="?", const="__default__",
-                   help=f"导出处理后的时域 CSV（默认 {DEFAULT_EXPORT_CSV}）")
-    p.add_argument("--export-metrics", nargs="?", const="__default__",
-                   help=f"导出指标汇总 CSV（默认 {DEFAULT_EXPORT_METRICS}）")
-    p.add_argument("--rogowski", nargs="?", const="__default__",
-                   help="开启罗氏线圈补偿，可跟预设名（默认 HQRocoil-Mini）")
-    p.add_argument("--no-rogowski", action="store_true", help="强制关闭罗氏线圈补偿")
-    p.add_argument("--rogowski-tau-us", type=float, help="临时覆盖补偿时间常数（us）")
-    p.add_argument("--rogowski-gain", type=float, help="临时覆盖高通失配增益")
-    p.add_argument("--window", choices=("auto", "manual"), default=None,
-                   help="分析窗口模式（默认 auto）")
-    p.add_argument("--pre-ns", type=float, default=None, help="manual 模式的前窗（ns）")
-    p.add_argument("--post-ns", type=float, default=None, help="manual 模式的后窗（ns）")
-    p.add_argument("--smooth-ns", type=float, default=None, help="VGS 移动平均窗宽（ns）")
-    p.add_argument("--min-pulse-ns", type=float, default=None, help="最小有效脉宽（ns）")
-    p.add_argument("--edge-hyst", type=float, default=None, help="边沿迟滞比例（默认 0.10）")
-    p.add_argument("--deskew-id-ns", type=float, default=None, help="ID 软件 deskew（ns）")
-    p.add_argument("--no-auto-zero", action="store_true", help="关闭自动零偏校准")
-    p.add_argument("--t-on1-us", type=float, help="手工指定第一脉冲开通时刻（us）")
-    p.add_argument("--t-off1-us", type=float, help="手工指定第一脉冲关断时刻（us）")
-    p.add_argument("--t-on2-us", type=float, help="手工指定第二脉冲开通时刻（us）")
-    p.add_argument("--t-off2-us", type=float, help="手工指定第二脉冲关断时刻（us）")
-    p.add_argument("--no-plot", action="store_true", help="不生成图片")
-    p.add_argument("--no-show", action="store_true", help="生成图片但不弹窗")
-    p.add_argument("--title", default=TEST_TITLE, help="报告标题")
-    p.add_argument("--device", default=DEVICE_NAME, help="被测器件描述")
-    p.add_argument("--verbose", action="store_true", help="打印更多窗口/路径信息")
+
+    g_in = p.add_argument_group("输入文件")
+    g_in.add_argument("-c1", "--c1", type=Path,
+                      help="CH1 / VGS 的 CSV；省略时自动扫描 *_C1_*.csv 并推导 C2/C3")
+    g_in.add_argument("-c2", "--c2", type=Path,
+                      help="CH2 / ID 的 CSV（省略时由 C1 文件名推导）")
+    g_in.add_argument("-c3", "--c3", type=Path,
+                      help="CH3 / VDS 的 CSV（省略时由 C1 文件名推导）")
+    g_in.add_argument("--data-dir", type=Path, default=Path(DEFAULT_DATA_DIR),
+                      help=f"自动扫描目录（默认 {DEFAULT_DATA_DIR}）")
+
+    g_edge = p.add_argument_group("分析窗口与边沿识别")
+    g_edge.add_argument("--window", choices=("auto", "manual"), default=None,
+                        help="窗口模式：auto 按实测开关时间自动定宽；manual 用 --pre-ns/--post-ns（默认 auto）")
+    g_edge.add_argument("--pre-ns", type=float, default=None,
+                        help="manual 模式的前窗，单位 ns（默认 60）")
+    g_edge.add_argument("--post-ns", type=float, default=None,
+                        help="manual 模式的后窗，单位 ns（默认 160）")
+    g_edge.add_argument("--smooth-ns", type=float, default=None,
+                        help="VGS 移动平均窗宽，单位 ns（默认 10）")
+    g_edge.add_argument("--min-pulse-ns", type=float, default=None,
+                        help="最小有效脉宽，单位 ns（默认 200）")
+    g_edge.add_argument("--edge-hyst", type=float, default=None,
+                        help="边沿迟滞比例，0~0.5（默认 0.10）")
+    g_edge.add_argument("--deskew-id-ns", type=float, default=None,
+                        help="ID 软件 deskew，单位 ns（默认 0）")
+    g_edge.add_argument("--no-auto-zero", action="store_true",
+                        help="关闭自动零偏校准（默认开启）")
+
+    g_rog = p.add_argument_group("罗氏线圈补偿")
+    g_rog.add_argument("--rogowski", nargs="?", const="__default__",
+                       help="开启罗氏线圈补偿，可选预设名（不带值时用 HQRocoil-Mini）")
+    g_rog.add_argument("--no-rogowski", action="store_true",
+                       help="强制关闭罗氏线圈补偿（覆盖顶部配置）")
+    g_rog.add_argument("--rogowski-tau-us", type=float,
+                       help="临时覆盖预设里的时间常数，单位 us")
+    g_rog.add_argument("--rogowski-gain", type=float,
+                       help="临时覆盖预设里的高通失配增益")
+
+    g_out = p.add_argument_group("输出")
+    g_out.add_argument("--out-dir", type=Path, default=Path(OUTPUT_DIR),
+                       help=f"图片和导出 CSV 的输出目录（默认 {OUTPUT_DIR}）")
+    g_out.add_argument("--export-csv", nargs="?", const="__default__",
+                       help=f"导出处理后的时域 CSV；不带路径时写 {DEFAULT_EXPORT_CSV}")
+    g_out.add_argument("--export-metrics", nargs="?", const="__default__",
+                       help=f"导出指标汇总 CSV；不带路径时写 {DEFAULT_EXPORT_METRICS}")
+    g_out.add_argument("--no-plot", action="store_true", help="不生成分析图")
+    g_out.add_argument("--no-show", action="store_true",
+                       help="生成分析图但不弹窗（无头/服务器环境）")
+
+    g_rep = p.add_argument_group("手工覆盖与报告")
+    g_rep.add_argument("--t-on1-us", type=float,
+                       help="手工指定第一脉冲开通时刻，单位 us；四个时刻给齐时跳过自动识别")
+    g_rep.add_argument("--t-off1-us", type=float,
+                       help="手工指定第一脉冲关断时刻，单位 us")
+    g_rep.add_argument("--t-on2-us", type=float,
+                       help="手工指定第二脉冲开通时刻，单位 us")
+    g_rep.add_argument("--t-off2-us", type=float,
+                       help="手工指定第二脉冲关断时刻，单位 us")
+    g_rep.add_argument("--title", default=TEST_TITLE, help="报告和分析图标题")
+    g_rep.add_argument("--device", default=DEVICE_NAME, help="被测器件描述，写进报告标题")
+    g_rep.add_argument("--verbose", action="store_true", help="打印输入路径、点数等调试信息")
     return p
 
 

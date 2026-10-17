@@ -12,6 +12,10 @@ tags: ["dpt", "mosfet", "switching-loss", "python"]
 categories: []
 ---
 
+> **作者**：Chen Fangshuo（ForSure） · 2026-10-17 · 首发于 [forsure.live](https://forsure.live/double-pulse-test-at-home/)
+>
+> 文字与图片版权归作者所有，转载请注明出处并链回原文。配套脚本 `dpt_analyzer.py`：Copyright (c) 2026 Chen Fangshuo，`SPDX-License-Identifier: MIT`，完整许可文本见[仓库 LICENSE](https://github.com/chenfangshuo/chenfangshuo.github.io/blob/main/LICENSE)。
+
 **为什么要在家里搭 DPT？** Datasheet 里的开关时间和损耗，都是在厂商指定的测试环境（特定的换流回路电感 L_loop、栅极电阻 Rg、母线电压和探头带宽）下测出来的，每家的口径还不一样，对选型帮助有限。真正做高频或大电流电源时，只有自己跑一遍 DPT，才能知道管子在自己板子上的真实表现；而且这套平台可以反复用来横向对比不同器件，在电源第一次上电之前把 Rg、Cgs、缓冲电路调好——总比上电就炸机强。
 
 **本文目标**：用一套低成本、可复现的桌面设备，完成一颗 100 V、1.7 mΩ、TOLT 封装 SGT MOSFET 的双脉冲测试；再用一份 Python 脚本替代示波器的付费电源分析选件，把开关时间、开关损耗、回路电感、负载电感和 Qrr 一次性算出来。
@@ -113,20 +117,90 @@ $$
 pip install numpy pandas scipy matplotlib
 ```
 
+> 脚本里的积分用的是 `scipy.integrate.trapezoid`，NumPy 1.x 和 2.x 都能跑（不依赖 NumPy 2.x 才有的 `np.trapezoid`）。
+
 把三份 CSV 放在当前目录，直接运行即可自动扫描 `*_C1_*.csv` 并推导 C2/C3：
 
 ```powershell
 python dpt_analyzer.py
 ```
 
-也可以显式指定文件、导出处理后的数据，或打开罗氏线圈补偿：
+完整参数可以直接看脚本自带的帮助（下面把同一份帮助按用途整理成了表格）：
 
 ```powershell
+python dpt_analyzer.py -h
+```
+
+比较常用的几条命令：
+
+```powershell
+# 显式指定三个通道
 python dpt_analyzer.py -c1 usr_wf_C1_data.csv -c2 usr_wf_C2_data.csv -c3 usr_wf_C3_data.csv
+
+# 导出处理后的波形和指标
 python dpt_analyzer.py --export-csv dpt_processed.csv --export-metrics dpt_metrics.csv
+
+# 打开罗氏线圈补偿（默认关闭）
 python dpt_analyzer.py --rogowski HQRocoil-Mini
+
+# 固定分析窗口，并且不弹窗（适合远程/无头环境）
 python dpt_analyzer.py --window manual --pre-ns 80 --post-ns 200 --no-show
 ```
+
+**输入文件**
+
+| 参数 | 作用 |
+|:---|:---|
+| `-c1` / `-c2` / `-c3` | 三通道 CSV（VGS / ID / VDS）。省略时自动扫描当前目录的 `*_C1_*.csv`，并用文件名推导 C2/C3 |
+| `--data-dir DIR` | 自动扫描目录，默认 `.` |
+
+**分析窗口与边沿识别**
+
+| 参数 | 作用 |
+|:---|:---|
+| `--window {auto,manual}` | 分析窗口模式。`auto` 按实测开关时间自动定宽；`manual` 使用下面的 pre/post（默认 `auto`） |
+| `--pre-ns` / `--post-ns` | manual 模式的前窗 / 后窗，单位 ns（默认 60 / 160） |
+| `--smooth-ns` | VGS 移动平均窗宽，单位 ns（默认 10） |
+| `--min-pulse-ns` | 最小有效脉宽，单位 ns（默认 200） |
+| `--edge-hyst` | 边沿迟滞比例，0~0.5（默认 0.10） |
+| `--deskew-id-ns` | ID 软件 deskew，单位 ns（默认 0；正值为电流提前） |
+| `--no-auto-zero` | 关闭自动零偏校准（默认开启） |
+
+**罗氏线圈补偿**
+
+| 参数 | 作用 |
+|:---|:---|
+| `--rogowski [PRESET]` | 开启补偿；不带预设名时使用 `HQRocoil-Mini` |
+| `--no-rogowski` | 强制关闭补偿（覆盖文件顶部的 `ENABLE_ROGOWSKI_COMP`） |
+| `--rogowski-tau-us` / `--rogowski-gain` | 临时覆盖预设里的时间常数 / 高通失配增益 |
+
+**输出**
+
+| 参数 | 作用 |
+|:---|:---|
+| `--out-dir DIR` | 图片和导出 CSV 的输出目录（默认当前目录） |
+| `--export-csv [PATH]` | 导出处理后的时域 CSV；不带路径时写 `dpt_processed.csv` |
+| `--export-metrics [PATH]` | 导出指标汇总 CSV；不带路径时写 `dpt_metrics.csv` |
+| `--no-plot` | 不生成分析图 |
+| `--no-show` | 生成分析图但不弹窗（服务器 / 无头环境） |
+
+**手工覆盖与报告**
+
+| 参数 | 作用 |
+|:---|:---|
+| `--t-on1-us` 等四个时刻 | 手工指定第一开通、第一关断、第二开通、第二关断时刻，单位 µs；四个都给齐时跳过自动边沿识别 |
+| `--title` / `--device` | 报告和分析图标题 / 被测器件描述 |
+| `--verbose` | 打印输入路径、点数等调试信息 |
+| `-h` / `--help` | 打印完整帮助 |
+
+导出的文件长这样：
+
+| 文件 | 内容 |
+|:---|:---|
+| `dpt_processed.csv` | 列：`Time_s, VGS_V, ID_A, VDS_V, P_W, E_sw_uJ`。VDS 以导通压降为零点；`E_sw_uJ` 只在 Eoff/Eon 积分窗口累计 |
+| `dpt_metrics.csv` | 三列：`Metric, Value, Unit`，和终端打印的 Markdown 表同口径 |
+
+> 脚本顶部的配置区决定所有默认值；命令行参数只覆盖本次运行，不会修改文件。
 
 #### 2. 脚本功能
 
