@@ -13,3 +13,7 @@ MAINTENANCE.local.md
 
 # Claude Code 的本机上下文（速查 MAINTENANCE.local.md 的高频命令与踩坑）
 CLAUDE.md
+
+# Python 缓存（文章里的 dpt_analyzer.py 会被扫描脚本 import）
+__pycache__/
+*.pyc
