@@ -70,9 +70,9 @@ TRIG
 
 代码在 G474PulseGen 的 `pc_host` 下，分成三个文件：
 
-- [`siglent_scope.py`](https://github.com/chenfangshuo/G474PulseGen/blob/main/pc_host/siglent_scope.py)：LAN 5025 SCPI、二进制块、346 字节 Preamble、WORD/12-bit 换算、三通道读取。
-- [`pulsegen_scpi.py`](https://github.com/chenfangshuo/G474PulseGen/blob/main/pc_host/pulsegen_scpi.py)：复用 `demo_scripts.ScipClient`，封装 `MODE/DPULS/OUTP/TRIG/STAT`。
-- [`dpt_sweep.py`](https://github.com/chenfangshuo/G474PulseGen/blob/main/pc_host/dpt_sweep.py)：扫描编排、安全门禁、调用 `dpt_analyzer`、输出 CSV/图和 Markdown 表。
+- [`siglent_scope.py`](https://github.com/chenfangshuo/G474PulseGen/blob/master/pc_host/siglent_scope.py)：LAN 5025 SCPI、二进制块、346 字节 Preamble、WORD/12-bit 换算、三通道读取。
+- [`pulsegen_scpi.py`](https://github.com/chenfangshuo/G474PulseGen/blob/master/pc_host/pulsegen_scpi.py)：复用 `demo_scripts.ScipClient`，封装 `MODE/DPULS/OUTP/TRIG/STAT`。
+- [`dpt_sweep.py`](https://github.com/chenfangshuo/G474PulseGen/blob/master/pc_host/dpt_sweep.py)：扫描编排、安全门禁、调用 `dpt_analyzer`、输出 CSV/图和 Markdown 表。
 
 最常用的三条命令：
 
