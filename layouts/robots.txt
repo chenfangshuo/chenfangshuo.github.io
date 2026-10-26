@@ -1,0 +1,132 @@
+{{- /*
+  robots.txt —— 站点侧覆盖，内容与 themes/FixIt/layouts/robots.txt（v1.0.0-beta.3）
+  逐行一致，只改了末尾的空白处理。
+
+  为什么覆盖：主题模板结尾是
+      {{- end -}}          ← 范围块结束，右侧 trim
+      (空行)
+      Sitemap: ...
+  那个 `-}}` 会把它自己和 Sitemap 行之间的换行一起裁掉，实际输出变成
+      Disallow: /Sitemap: https://forsure.live/sitemap.xml
+  （2026-10-26 实测确认，Google 因此读不到 Sitemap 声明）。
+  主题锁在 submodule 上不能改，所以整份覆盖；上游修好后删掉本文件即可。
+*/ -}}
+User-agent: *
+
+Disallow: /images/
+Disallow: /js/
+Disallow: /css/
+
+Disallow: /*link/
+Disallow: /*offline/
+Disallow: /*404.html$
+Disallow: /*.md$
+
+{{ if .Site.Params.robots.allow_crawlers -}}
+# Content-Signal (non-standard, for AI-aware crawlers)
+Content-Signal: search=yes, ai-input=yes, ai-train=no
+{{- end }}
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: BLEXBot
+Disallow: /
+
+# Block SISTRIX
+User-agent: SISTRIX Crawler
+Disallow: /
+User-agent: sistrix
+Disallow: /
+User-agent: 007ac9
+Disallow: /
+User-agent: 007ac9 Crawler
+Disallow: /
+
+# Block Uptime robot
+User-agent: UptimeRobot/2.0
+Disallow: /
+
+# Block Ezooms Robot
+User-agent: Ezooms Robot
+Disallow: /
+
+# Block Perl LWP
+User-agent: Perl LWP
+Disallow: /
+
+# Block netEstate NE Crawler (+http://www.website-datenbank.de/)
+User-agent: netEstate NE Crawler (+http://www.website-datenbank.de/)
+Disallow: /
+
+# Block WiseGuys Robot
+User-agent: WiseGuys Robot
+Disallow: /
+
+# Block Turnitin Robot
+User-agent: Turnitin Robot
+Disallow: /
+
+# Block Heritrix
+User-agent: Heritrix
+Disallow: /
+
+# Block pricepi
+User-agent: pimonster
+Disallow: /
+
+User-agent: SurdotlyBot
+Disallow: /
+
+User-agent: ZoominfoBot
+Disallow: /
+
+{{ if not .Site.Params.robots.allow_crawlers -}}
+# OpenAI, ChatGPT
+User-agent: GPTBot
+Disallow: /
+
+# Google AI (Bard, etc)
+User-agent: Google-Extended
+Disallow: /
+
+# Block common crawl
+User-agent: CCBot
+Disallow: /
+
+# Facebook
+User-agent: FacebookBot
+Disallow: /
+
+# Cohere.ai
+User-agent: cohere-ai
+Disallow: /
+
+# Perplexity
+User-agent: PerplexityBot
+Disallow: /
+
+# Anthropic
+User-agent: anthropic-ai
+Disallow: /
+
+# Claudebot by Anthropic
+User-agent: ClaudeBot
+Disallow: /
+{{- end }}
+
+{{- range .Site.Params.robots.rules }}
+
+User-agent: {{ .user_agent }}
+{{- with .disallow }}
+Disallow: {{ . }}
+{{- end }}
+{{- with .allow }}
+Allow: {{ . }}
+{{- end }}
+{{- end }}
+
+Sitemap: {{ "/sitemap.xml" | absURL }}
