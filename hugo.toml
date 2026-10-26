@@ -57,6 +57,11 @@ date_format = "2006-01-02"
 # 由 custom.js import，见 MAINTENANCE.local.md。）
 fingerprint = "sha256"
 
+# 作者归档页（/authors/<name>/）：本站是单作者站，且这些页面没有任何站内入口
+# （GSC 里的孤儿页）。与 [taxonomies] 里的 author 必须同时关闭 —— 只关一个时，
+# 主题的 content/_authors/_content.gotmpl 会因为没有 taxonomy 配置而让构建失败。
+author_archive = false
+
 # --- 作者 -----------------------------------------------------------------------
 [params.author]
 name = "ForSure"
@@ -492,12 +497,15 @@ term = [
 
 
 [taxonomies]
-category = "categories"
+# 只保留标签。categories / collections / authors 在 2026-10-26 主动移除：
+# 它们生成的页面全是空页或重复页，而且没有任何站内链接指向（GSC 里的孤儿页）：
+#   categories  —— 全站 0 个分类（每篇 front matter 都是 categories: []）
+#   collections —— 全站 0 个合集
+#   authors     —— 单作者站，/authors/forsure/ 只是把所有文章再列一遍
+# 以后真要用，把对应的 `xxx = "..."` 行加回来即可，taxonomy 页面会自动重新生成
+# （authors 还要把 [params] 里的 author_archive 改回 true）。
+# 文章 front matter 里留着的 categories: [] 字段无副作用，可留可删。
 tag = "tags"
-collection = "collections"
-# Enables /authors/<name>/ archive pages for the page-level `authors` front matter field.
-# Optional — sites that never set `authors` are unaffected.
-author = "authors"
 
 # -------------------------------------------------------------------------------------
 # Build Configuration
