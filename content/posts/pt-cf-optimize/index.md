@@ -105,13 +105,13 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\pt-cf-optimize.ps1 -Rollback
 4. 跑脚本时不用关 Clash（所有 curl 都带 `--noproxy '*'`，CFST 启动前会清空代理环境变量）；但**浏览时想走 hosts，需要关掉代理，或把域名加进代理旁路**——开着 Clash 时 hosts 不参与解析。
 5. 优选出的 IP 会随时间变化，建议 **1–2 周重跑一次**；hosts 不影响 P2P；暂不做 IPv6 优选。
 6. **不建议把 `tracker.example.com` 这类汇报子域名写进列表**：announce 是每 30 分钟一次的几十字节请求，优选没有收益；映射一旦过期或变成 1034，汇报失败反而会红种。如果站点是 `example.com/announce.php` 这种同域名结构就分不开，只能靠定期重跑和回滚兜底。
-7. **DryRun 不会减少请求量**。如果对目标站的请求频率有顾虑，可以减少 `domains.txt` 里的域名，或调低 `-MaxDomainProbes`（每域名候选探测上限，默认 6）、`-CandidatesPerDomain`（默认 3）、`-BackfillCandidates`（默认 1），把 `-VerifyDelayMs` 从 400ms 调大。比如：
+7. **DryRun 不会减少请求量**。如果对某个站点的请求频率有顾虑，可以调低 `-MaxDomainProbes`（每域名候选探测上限，默认 6）、`-CandidatesPerDomain`（默认 3）、`-BackfillCandidates`（默认 1），把 `-VerifyDelayMs` 从 400ms 调大。比如：
 
    ```powershell
    .\pt-cf-optimize.ps1 -MaxDomainProbes 3 -CandidatesPerDomain 2 -BackfillCandidates 0 -VerifyDelayMs 1000
    ```
 
-   这些参数会牺牲一点候选选择和测速精度。**如果站点管理员认为默认频率不合适，可以直接告诉我，我会调整默认值。**
+   减少候选数会牺牲一点选择余地；调大验证间隔只会让运行更慢，不改变判定结果。**如果站点管理员认为默认频率不合适，可以直接告诉我，我会调整默认值。**
 
 ## 最后
 
