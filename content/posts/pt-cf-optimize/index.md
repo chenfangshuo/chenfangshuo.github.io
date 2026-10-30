@@ -1,22 +1,24 @@
 ---
-title: 让 PT 站快一点：把 Cloudflare 优选 IP 写进 hosts
+title: 从 30 秒到 3 秒：把 Cloudflare 优选 IP 写进 hosts
 subtitle: ""
 date: 2026-10-29T22:20:00+08:00
 slug: "pt-cf-optimize"
 draft: false
-description: "一个 Windows PowerShell 工具：扫描 Cloudflare 边缘 IP、逐域名验证后写进 hosts，让 PT 站和论坛的网页、tracker 更快。不代理、不登录、不改出口 IP，带严格校验、备份和一键回滚。"
-keywords: ["Cloudflare", "优选 IP", "hosts", "PT", "PowerShell"]
+description: "一个 Windows PowerShell 工具：扫描 Cloudflare 边缘 IP、逐域名验证后写进 hosts，让套了 Cloudflare 的站点更快。我这边有站从 30 秒掉到 3 秒内。不代理、不登录、不改出口 IP，带严格校验、备份和一键回滚。"
+keywords: ["Cloudflare", "优选 IP", "hosts", "网站加速", "PowerShell", "PT"]
 featured_image: featured-image.webp
 featured_image_preview: featured-image-preview.webp
 tags: ["cloudflare", "hosts", "powershell", "pt", "network"]
 categories: []
 ---
 
-PT 站大多套在 Cloudflare 后面。域名解析到哪台边缘节点，是 CF 按访客线路分配的；同一条宽带、同一个站，换一个边缘 IP，网页首字节可能从 1 秒掉到 0.6 秒，tracker 的 HTTP 连接也会顺一点。所以「Cloudflare 优选」在 PT 圈一直有人折腾。
+很多站点都套在 Cloudflare 后面：PT 站、论坛、图床、个人博客。CF 会把域名解析到它认为合适的边缘节点，但「合适」是按它自己的调度算的，不一定适合你这条线路。
+
+我这边就有几个这样的站：没做优选时，整页加载要 30 秒左右，运气不好直接打不开；把优选 IP 写进 hosts 之后，同样的页面 3 秒内就出来了。差别不是玄学——同一个站落到不同的边缘 IP，有时只是首字节 1 秒变 0.6 秒，有时就是「打不开」和「3 秒」的区别。所以「Cloudflare 优选」一直有人折腾。
 
 但常见做法各有各的代价：给代理客户端换节点，改变的是出口 IP，站方看到的是另一条线路；在线优选网站要把域名交给第三方；手工把 IP 抄进 hosts，又没有验证和备份，站点一换 IP 就打不开了。我想要的其实很小——**只把「哪些 CF 边缘 IP 对这条宽带更快」算清楚，再安全地写进本机 hosts**。
 
-[`pt-cf-optimize`](https://github.com/chenfangshuo/pt-cf-optimize) 就是为这个写的：Windows PowerShell 脚本，不代理、不登录、不改出口 IP；扫描、测速、逐站验证都在本地完成，最后只维护 hosts 里一个带标记的区块，出问题一条命令回滚。
+[`pt-cf-optimize`](https://github.com/chenfangshuo/pt-cf-optimize) 就是为这个写的：Windows PowerShell 脚本，不代理、不登录、不改出口 IP；扫描、测速、逐站验证都在本地完成，最后只维护 hosts 里一个带标记的区块，出问题一条命令回滚。名字里的 `pt` 只是因为最早是给自己挂 PT 用的——它并不绑定 PT，任何套了 Cloudflare 的域名都可以填进 `domains.txt`。
 
 <!--more-->
 
@@ -30,7 +32,7 @@ PT 站大多套在 Cloudflare 后面。域名解析到哪台边缘节点，是 C
 | 只维护 hosts 里一对 `BEGIN/END` 标记之间的内容 | 不碰 BitTorrent 的 P2P 数据连接 |
 | 备份、原子写入、读回校验、一键回滚 | 不代替 VPN / 机场 / 在线优选网站 |
 
-它解决的是「网页打开慢、tracker 连得慢」这一段；**下载速度不会因此变快**，因为 PT 的实际传输是 BitTorrent 直连，和 hosts 无关。这一点在 FAQ 里被问得最多，先写在前面。
+它解决的是「网页和 API 打开慢」这一段；对 PT 来说，tracker 的连接也会顺一点。**下载速度不会因此变快**，因为 PT 的实际传输是 BitTorrent 直连，和 hosts 无关。这一点在 FAQ 里被问得最多，先写在前面。
 
 ## 跑起来
 
@@ -172,9 +174,9 @@ forum.example.org 104.17.131.149  ok            0.57 104.17.131.149       0.57  
 
 需要给面板或定时任务消费结果时，用 `-Plan -PlanPath .\plan.json` 输出 JSON（不写 hosts、不需要管理员）。定时运行的三种方案，包括自动写入的风险，在仓库的 `docs/scheduling.md` 里。
 
-## PT 场景的安全边界
+## 安全边界：它对目标站做了什么
 
-这部分是我认为比速度更值得强调的：
+这部分比速度更值得强调，挂 PT 的话尤其要看：
 
 - **不改变出口 IP**。工具只决定「连到哪个 CF 边缘节点」，流量仍然从家宽直接出去；登录 IP、tracker 上报 IP 都不变。前提是这些域名在代理旁路里。
 - **不登录、不带 Cookie、不访问 announce URL、不读 passkey**。对目标站只发少量 HEAD：每域名典型 6–10 次，最坏 11 次；准备切换时同一 IP 最多 2 次。
@@ -186,7 +188,7 @@ forum.example.org 104.17.131.149  ok            0.57 104.17.131.149       0.57  
 
 ## 它解决不了什么
 
-- **下载不会变快**。hosts 只影响这些域名的网页和 tracker 通告，P2P 传输取决于做种人数、IPv6 和运营商互联。
+- **对 PT 来说，下载不会变快**。hosts 只影响这些域名的网页和 tracker 通告；P2P 传输取决于做种人数、IPv6 和运营商互联。
 - **IPv6 没有优选**。脚本只扫 IPv4。写入 A 记录后，Windows 通常不再使用 DNS 返回的 AAAA，所以浏览器会走 hosts 里的 IPv4；但应用自带解析器、DoH 可能有不同行为，`-CheckResolved` 可以看到系统实际返回的地址。BitTorrent 的 IPv6 对等连接不受影响。
 - **结果有时效**。CF 路由、运营商互联和 zone 白名单都会变。选中的 IP 如果一直健康，不会因为「过了两周」自动变慢；但它一旦变慢或失效，hosts 不会自己更新，这时可能比走 DNS 还慢。建议每 1–2 周重跑，或者在站点打不开时先 `-Rollback`。
 - **只支持 Windows**。依赖注册表里的 WinINET 代理设置、`Get-NetAdapter` 和 `ipconfig`。
@@ -195,4 +197,4 @@ forum.example.org 104.17.131.149  ok            0.57 104.17.131.149       0.57  
 
 写这个工具的出发点不是「做出一个比在线优选更准的测速器」，而是把「测出来」到「写进去」之间那段最容易出事的环节补上：严格校验、增量更新、备份和回滚。速度是目标，但**可逆**才是它敢碰 hosts 的前提。
 
-仓库在 [chenfangshuo/pt-cf-optimize](https://github.com/chenfangshuo/pt-cf-optimize)，MIT 协议，不附带 CloudflareSpeedTest 的代码或二进制。README 和 `docs/` 里有完整的参数表、导入说明和 FAQ；如果你也在 Windows 上挂 PT，又不想为了几个网站去动代理，可以直接从 `-DryRun` 开始。
+仓库在 [chenfangshuo/pt-cf-optimize](https://github.com/chenfangshuo/pt-cf-optimize)，MIT 协议，不附带 CloudflareSpeedTest 的代码或二进制。README 和 `docs/` 里有完整的参数表、导入说明和 FAQ；如果你也有几个 Windows 上访问慢得离谱的 CF 站点——PT、论坛、个人博客都算——又不想为了它们去动代理，可以直接从 `-DryRun` 开始。
