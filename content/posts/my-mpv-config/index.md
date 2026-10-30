@@ -8,7 +8,7 @@ description: "一份自用的 Windows mpv 配置：gpu-next + D3D11 硬解，HDR
 keywords: []
 featured_image: featured-image.webp                 # 文章封面 1600x900 / 21KB（代码卡片风，与站内代码块同一套视觉）
 featured_image_preview: featured-image-preview.webp # 首页卡片用 800x450 / 8KB，见 MAINTENANCE.local.md「国内访问优化」
-tags: []
+tags: ["mpv", "windows", "config", "hdr"]
 categories: []
 ---
 

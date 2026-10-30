@@ -8,7 +8,7 @@ featured_image: featured-image.webp                 # 文章大封面  <- 旧站
 # 时会优先用它，于是首页卡片只下 28KB 的小图，文章页才拉 82KB 的大图。
 # 起因见 MAINTENANCE.local.md「国内访问优化」——原先一张 1600x900/167KB 的图被卡片全尺寸下发。
 featured_image_preview: featured-image-preview.webp
-tags: []
+tags: ["hexo", "fluid", "css", "twikoo"]
 categories: []
 ---
 

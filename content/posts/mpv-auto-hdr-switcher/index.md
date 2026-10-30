@@ -8,7 +8,7 @@ description: "一个 mpv 脚本：播 HDR 片时自动打开 Windows 的 HDR，�
 keywords: []
 featured_image: featured-image.webp                 # 文章封面 1600x900（代码卡片风，与站内代码块同一套视觉）
 featured_image_preview: featured-image-preview.webp # 首页卡片用 800x450
-tags: []
+tags: ["mpv", "hdr", "lua", "windows"]
 categories: []
 ---
 
