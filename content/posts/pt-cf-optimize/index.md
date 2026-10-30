@@ -1,5 +1,5 @@
 ---
-title: 从 30 秒到 3 秒：把 Cloudflare 优选 IP 写进 hosts
+title: 套了 Cloudflare 的站慢，可能只是落错了机房
 subtitle: ""
 date: 2026-10-29T22:20:00+08:00
 slug: "pt-cf-optimize"
