@@ -63,7 +63,7 @@ pt-cf-optimize\
 
 **4）先看结果，再写 hosts**
 
-DryRun 不需要管理员，也不会改 hosts：
+DryRun 不需要管理员，也不会改 hosts；但**扫描、测速和逐站 HEAD 验证都会照常执行**——它只是不写入，不是完全不发请求。
 
 ```powershell
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\pt-cf-optimize.ps1 -DryRun
@@ -100,12 +100,18 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\pt-cf-optimize.ps1 -Rollback
 ## 注意事项
 
 1. **第一次运行约 8–15 分钟**，写入 hosts 需要管理员权限；hosts 只影响本机，不改变站点看到的来源。
-2. 每次只对每个站点做少量首页 HEAD 请求（默认上限约 10 次、间隔 400ms），**不登录、不带 Cookie、不读 passkey、不访问 announce、不连 tracker 端口**；批量测速只打 `speed.cloudflare.com`；只处理你写进 `domains.txt` 的域名，不会自动发现或爬取站点。
+2. **无论 DryRun 还是正式写入**，每个域名典型只发 6–10 次首页 HEAD（最坏 11 次，间隔 400ms），**不登录、不带 Cookie、不读 passkey、不访问 announce、不连 tracker 端口**；批量测速只打 `speed.cloudflare.com`；只处理你写进 `domains.txt` 的域名，不会自动发现或爬取站点。
 3. 默认只新增/更新列表里的域名，**不删除其他托管条目**；只有 `-Prune` 才会清理不在列表里的旧映射。
 4. 跑脚本时不用关 Clash（所有 curl 都带 `--noproxy '*'`，CFST 启动前会清空代理环境变量）；但**浏览时想走 hosts，需要关掉代理，或把域名加进代理旁路**——开着 Clash 时 hosts 不参与解析。
 5. 优选出的 IP 会随时间变化，建议 **1–2 周重跑一次**；hosts 不影响 P2P；暂不做 IPv6 优选。
 6. **不建议把 `tracker.example.com` 这类汇报子域名写进列表**：announce 是每 30 分钟一次的几十字节请求，优选没有收益；映射一旦过期或变成 1034，汇报失败反而会红种。如果站点是 `example.com/announce.php` 这种同域名结构就分不开，只能靠定期重跑和回滚兜底。
-7. 如果站点对自动化请求比较敏感，建议先只跑 `-DryRun`，确认请求频率和结果都合适再写入。
+7. **DryRun 不会减少请求量**。如果对目标站的请求频率有顾虑，可以减少 `domains.txt` 里的域名，或调低 `-MaxDomainProbes`（每域名候选探测上限，默认 6）、`-CandidatesPerDomain`（默认 3）、`-BackfillCandidates`（默认 1），把 `-VerifyDelayMs` 从 400ms 调大。比如：
+
+   ```powershell
+   .\pt-cf-optimize.ps1 -MaxDomainProbes 3 -CandidatesPerDomain 2 -BackfillCandidates 0 -VerifyDelayMs 1000
+   ```
+
+   这些参数会牺牲一点候选选择和测速精度。**如果站点管理员认为默认频率不合适，可以直接告诉我，我会调整默认值。**
 
 ## 最后
 
