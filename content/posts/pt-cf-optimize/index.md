@@ -5,7 +5,7 @@ date: 2026-10-29T22:20:00+08:00
 slug: "pt-cf-optimize"
 draft: false
 lightgallery: "force"   # 正文图片灯箱；"force" = 无 title 的图也进相册
-description: "一个 Windows PowerShell 脚本：测出当前线路到 Cloudflare 各边缘节点较快的 IP，逐站验证后写进 hosts，改善网页和 tracker 的 TTFB。不代理、不登录、不改出口 IP，可一键回滚。"
+description: "一个 Windows PowerShell 脚本：测出当前线路到 Cloudflare 各边缘节点较快的 IP，逐站验证后写进 hosts，改善网页 TTFB。不代理、不登录、不改出口 IP，可一键回滚。"
 keywords: ["Cloudflare", "优选 IP", "hosts", "网站加速", "PowerShell", "PT"]
 featured_image: featured-image.webp
 featured_image_preview: featured-image-preview.webp
@@ -15,7 +15,7 @@ categories: []
 
 很多套了 Cloudflare 的站点，打开速度取决于你被分到哪个边缘节点。我这边（河北联通）访问大部分 PT 站都很慢，有的甚至完全进不去。用 [CloudflareSpeedTest（CFST）](https://github.com/XIU2/CloudflareSpeedTest) 优选后手动写 hosts 确实能改善，但 CFST 选出的 IP 不一定对每个站都最优：有的 IP 测速数据漂亮，一访问站点却提示 1034（Edge IP Restricted）；而且 CFST 默认的测速地址已经不由作者维护（[issue #168](https://github.com/XIU2/CloudflareSpeedTest/issues/168)），我这边访问直接返回 403，当前版本会判为失败，等于测不出速度。
 
-所以我写了 `pt-cf-optimize`：在 Windows 上测出当前线路到 Cloudflare 各边缘节点较快的 IP，逐站验证可用后写进 hosts。它只改善网页和 tracker 的 TTFB，不影响 P2P；不代理、不登录、不改出口 IP。我这边优选后，一个原本要 >10 秒才能加载完的站，现在 3 秒左右就能打开。
+所以我写了 `pt-cf-optimize`：在 Windows 上测出当前线路到 Cloudflare 各边缘节点较快的 IP，逐站验证可用后写进 hosts。它只改善网页 TTFB，不影响 P2P；不代理、不登录、不改出口 IP。我这边优选后，一个原本要 >10 秒才能加载完的站，现在 3 秒左右就能打开。
 
 <!--more-->
 
@@ -25,7 +25,7 @@ categories: []
 - 对每个域名发少量 HEAD 请求，确认这个 IP 真的能打开站点；
 - 只维护 hosts 里一个带标记的区块，支持备份和一键回滚。
 
-它不改变出口 IP（前提是这些域名在代理旁路里），也不影响 BitTorrent 的 P2P 连接。**下载速度不会因此变快**——hosts 只影响这些域名的网页和 tracker 通告。
+它不改变出口 IP（前提是这些域名在代理旁路里），也不影响 BitTorrent 的 P2P 连接。**下载速度不会因此变快**——hosts 只影响这些域名的网页访问。
 
 ## 怎么用
 
@@ -100,11 +100,12 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\pt-cf-optimize.ps1 -Rollback
 ## 注意事项
 
 1. **第一次运行约 8–15 分钟**，写入 hosts 需要管理员权限；hosts 只影响本机，不改变站点看到的来源。
-2. 每次只对每个站点做少量首页 HEAD 请求（默认上限约 10 次、间隔 400ms），**不登录、不带 Cookie、不读 passkey、不访问 announce**；批量测速只打 `speed.cloudflare.com`；只处理你写进 `domains.txt` 的域名，不会自动发现或爬取站点。
+2. 每次只对每个站点做少量首页 HEAD 请求（默认上限约 10 次、间隔 400ms），**不登录、不带 Cookie、不读 passkey、不访问 announce、不连 tracker 端口**；批量测速只打 `speed.cloudflare.com`；只处理你写进 `domains.txt` 的域名，不会自动发现或爬取站点。
 3. 默认只新增/更新列表里的域名，**不删除其他托管条目**；只有 `-Prune` 才会清理不在列表里的旧映射。
 4. 跑脚本时不用关 Clash（所有 curl 都带 `--noproxy '*'`，CFST 启动前会清空代理环境变量）；但**浏览时想走 hosts，需要关掉代理，或把域名加进代理旁路**——开着 Clash 时 hosts 不参与解析。
 5. 优选出的 IP 会随时间变化，建议 **1–2 周重跑一次**；hosts 不影响 P2P；暂不做 IPv6 优选。
-6. 如果站点对自动化请求比较敏感，建议先只跑 `-DryRun`，确认请求频率和结果都合适再写入。
+6. **不建议把 `tracker.example.com` 这类汇报子域名写进列表**：announce 是每 30 分钟一次的几十字节请求，优选没有收益；映射一旦过期或变成 1034，汇报失败反而会红种。如果站点是 `example.com/announce.php` 这种同域名结构就分不开，只能靠定期重跑和回滚兜底。
+7. 如果站点对自动化请求比较敏感，建议先只跑 `-DryRun`，确认请求频率和结果都合适再写入。
 
 ## 最后
 
