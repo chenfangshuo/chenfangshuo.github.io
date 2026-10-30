@@ -4,6 +4,7 @@ subtitle: ""
 date: 2026-10-29T22:20:00+08:00
 slug: "pt-cf-optimize"
 draft: false
+lightgallery: "force"   # 正文图片灯箱；"force" = 无 title 的图也进相册
 description: "一个 Windows PowerShell 脚本：测出当前线路到 Cloudflare 各边缘节点较快的 IP，逐站验证后写进 hosts，改善网页和 tracker 的 TTFB。不代理、不登录、不改出口 IP，可一键回滚。"
 keywords: ["Cloudflare", "优选 IP", "hosts", "网站加速", "PowerShell", "PT"]
 featured_image: featured-image.webp

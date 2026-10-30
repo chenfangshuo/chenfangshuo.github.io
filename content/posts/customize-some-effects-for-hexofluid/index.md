@@ -3,6 +3,7 @@ title: 为Hexo-Fluid自定义一些效果
 date: 2021-07-28T14:24:20+08:00
 slug: customize-some-effects-for-hexofluid   # 原来是 Hexo 的 translate_title，用来保住旧 URL
 draft: false
+lightgallery: "force"   # 正文图片灯箱；"force" = 无 title 的图也进相册
 featured_image: featured-image.webp                 # 文章大封面  <- 旧站 post.banner_img (sunset.jpg 3840x2160)
 # 首页卡片缩略图：主题的 get-cover.html 在有 Preview=true（本站 home.posts.image_preview）
 # 时会优先用它，于是首页卡片只下 28KB 的小图，文章页才拉 82KB 的大图。

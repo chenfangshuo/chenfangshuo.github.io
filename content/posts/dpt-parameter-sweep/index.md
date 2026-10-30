@@ -4,6 +4,7 @@ subtitle: ""
 date: 2026-10-19T18:30:00+08:00
 slug: "dpt-parameter-sweep"
 draft: false
+lightgallery: "force"   # 正文图片灯箱；"force" = 无 title 的图也进相册
 description: "把上一期的桌面 DPT 平台接上 G474 发波板和示波器 SCPI：固定 20 V 母线扫 tp1，自动采集 9 个电流点，画出 Eon/Eoff、开关时间、Vpeak/IRM、Qrr/L_loop 随 ID 的变化。"
 keywords: ["双脉冲测试", "DPT", "SCPI", "参数扫描", "MOSFET", "开关损耗"]
 featured_image: featured-image.webp

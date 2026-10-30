@@ -4,6 +4,7 @@ subtitle: ""
 date: 2026-10-17T12:57:12+08:00
 slug: "double-pulse-test-at-home"
 draft: false
+lightgallery: "force"   # 正文图片灯箱；"force" = 无 title 的图也进相册
 description: "用 100 V TOLT 封装 SGT MOSFET 在桌面上搭一套双脉冲测试平台：自绕 10.7 µH 负载电感、DIY 发波与隔离驱动板、罗氏线圈测电流，并用 Python 脚本自动提取开关时间、损耗、回路电感与 Qrr。"
 keywords: ["双脉冲测试", "DPT", "MOSFET", "开关损耗", "Rogowski"]
 featured_image: featured-image.webp
