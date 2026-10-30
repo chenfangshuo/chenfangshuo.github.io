@@ -1,10 +1,10 @@
 ---
-title: 套了 Cloudflare 的站慢，可能只是落错了机房
+title: 优选 Cloudflare 边缘 IP 并写入 hosts：一个脚本提升慢站的加载速度
 subtitle: ""
 date: 2026-10-29T22:20:00+08:00
 slug: "pt-cf-optimize"
 draft: false
-description: "一个 Windows PowerShell 工具：扫描 Cloudflare 边缘 IP、逐域名验证后写进 hosts，让套了 Cloudflare 的站点更快。我这边有站从 30 秒掉到 3 秒内。不代理、不登录、不改出口 IP，带严格校验、备份和一键回滚。"
+description: "一个 Windows PowerShell 工具：扫描 Cloudflare 边缘 IP、逐域名验证后写进 hosts，把慢站的加载速度提上来。我这边有站从 30 秒掉到 3 秒内。不代理、不登录、不改出口 IP，带严格校验、备份和一键回滚。"
 keywords: ["Cloudflare", "优选 IP", "hosts", "网站加速", "PowerShell", "PT"]
 featured_image: featured-image.webp
 featured_image_preview: featured-image-preview.webp
