@@ -9,6 +9,12 @@ description: "把上一期的桌面 DPT 平台接上 G474 发波板和示波器 
 keywords: ["双脉冲测试", "DPT", "SCPI", "参数扫描", "MOSFET", "开关损耗"]
 featured_image: featured-image.webp
 featured_image_preview: featured-image-preview.webp
+images:
+  - featured-image.webp
+seo:
+  images:
+    - featured-image.webp
+featured_image_alt: ""
 tags: ["dpt", "scpi", "parameter-sweep", "python"]
 categories: []
 ---

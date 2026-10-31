@@ -1,0 +1,33 @@
+{{- /*
+  微信分享入口 —— 通过 [params.custom_partials].post_footer_after 注入到文章页。
+  不改主题的 plugin/share.html：按钮由 share-wechat.js 插进主题的分享行。
+
+  - 桌面 / 非微信浏览器：点击生成当前页面 URL 的二维码（qrcodejs 懒加载）。
+  - 微信内置浏览器：提示「点击右上角 ··· 分享给朋友或朋友圈」。
+  二维码库走 Hugo 资源管线并指纹化；未加载前不产生请求。
+*/ -}}
+
+{{- $share := dict "Page" . "Key" "share" | partial "function/param.html" | default dict -}}
+{{- if and $share.enable $share.WeChat (not .Params.password) -}}
+  {{- $qr := resources.Get "lib/qrcodejs/qrcode.min.js" -}}
+  {{- with $qr }}{{ $qr = . | fingerprint "sha256" }}{{ end -}}
+  <div class="share-wechat" hidden>
+    <a href="javascript:void(0);" class="share-wechat-btn" role="button"
+       title="{{ T "shareOn" }} 微信" aria-label="{{ T "shareOn" }} 微信"
+       data-share-wechat
+       data-url="{{ .Permalink }}"
+       data-title="{{ .Title }}"
+       data-qr-lib="{{ with $qr }}{{ .RelPermalink }}{{ end }}">
+      {{- dict "Class" "fa-brands fa-weixin" | partial "plugin/icon.html" -}}
+    </a>
+    <div class="share-wechat-modal" hidden>
+      <div class="share-wechat-card" role="dialog" aria-modal="true" aria-label="微信分享">
+        <button type="button" class="share-wechat-close" aria-label="关闭">×</button>
+        <div class="share-wechat-qr"></div>
+        <p class="share-wechat-tip">微信扫一扫，打开本页</p>
+      </div>
+    </div>
+  </div>
+  {{- $fp := .Site.Store.Get "fingerprint" -}}
+  {{- dict "Source" "js/share-wechat.js" "Build" true "Fingerprint" $fp "Defer" true | dict "Page" . "Data" | partial "store/script.html" -}}
+{{- end -}}

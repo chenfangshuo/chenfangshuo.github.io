@@ -9,4 +9,5 @@
 # title 不写：head 里 .IsHome 时标题一律取 .Site.Title，写了也没用。
 images:
   - "/og-home.png"
+description: "ForSure 的个人博客：电源与硬件测试、MPV/HDR 配置、Cloudflare 与自建服务的折腾记录。"
 ---

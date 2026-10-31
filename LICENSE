@@ -53,8 +53,12 @@ SOFTWARE.
       https://fontawesome.com/license/free
 
   * assets/lib/twikoo/**
-      Twikoo 2.0.13，MIT，Copyright (c) 2020-present iMaeGoo
+      Twikoo 2.0.17，MIT，Copyright (c) 2020-present iMaeGoo
       https://github.com/imaegoo/twikoo/blob/master/LICENSE
+
+  * assets/lib/qrcodejs/**
+      qrcodejs 1.0.0，MIT，Copyright (c) 2012 davidshimjs
+      https://github.com/davidshimjs/qrcodejs/blob/master/LICENSE
 
   * themes/FixIt/**
       FixIt 主题（git submodule），MIT

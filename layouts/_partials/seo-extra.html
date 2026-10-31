@@ -1,0 +1,32 @@
+{{- /*
+  SEO 增量标签 —— 通过 [params.custom_partials].head 注入。
+
+  为什么需要：
+  - Hugo 内建 opengraph 不输出 og:image:alt / og:image:width / og:image:height；
+  - 主题的 twitter-cards.html 也不输出 twitter:image:alt。
+  这里只做增量，不重复输出 og:image 本身。
+
+  图片路径来自页面 front matter 的 images（文章为 featured-image.webp，
+  首页为 /og-home.png）。文章页的 images 同时喂给 Hugo 内建 opengraph，
+  所以这里的 alt / 宽高与实际 og:image 是同一张图。
+*/ -}}
+
+{{- with .Params.images -}}
+  {{- $page := $ -}}
+  {{- $alt := $page.Params.featured_image_alt -}}
+  {{- if not $alt -}}
+    {{- if $page.IsHome -}}
+      {{- $alt = site.Title -}}
+    {{- else -}}
+      {{- $alt = $page.Title -}}
+    {{- end -}}
+  {{- end -}}
+  {{- with $alt -}}
+    <meta property="og:image:alt" content="{{ . }}">
+    <meta name="twitter:image:alt" content="{{ . }}">
+  {{- end -}}
+  {{- with dict "Path" (index . 0) "Resources" $page.Resources | partial "function/resource.html" -}}
+    <meta property="og:image:width" content="{{ .Width }}">
+    <meta property="og:image:height" content="{{ .Height }}">
+  {{- end -}}
+{{- end -}}

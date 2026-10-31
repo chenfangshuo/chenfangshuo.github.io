@@ -4,14 +4,24 @@ date: 2021-07-28T14:24:20+08:00
 slug: customize-some-effects-for-hexofluid   # 原来是 Hexo 的 translate_title，用来保住旧 URL
 draft: false
 lightgallery: "force"   # 正文图片灯箱；"force" = 无 title 的图也进相册
+description: "记录为 Hexo Fluid 主题做的一批自定义：滚动条、首页图片动画、标题自动翻译、Twikoo 评论框与 Mac 风格代码块，附可用 CSS。"
+keywords: ["Hexo", "Fluid", "主题定制", "CSS", "Twikoo"]
 featured_image: featured-image.webp                 # 文章大封面  <- 旧站 post.banner_img (sunset.jpg 3840x2160)
 # 首页卡片缩略图：主题的 get-cover.html 在有 Preview=true（本站 home.posts.image_preview）
 # 时会优先用它，于是首页卡片只下 28KB 的小图，文章页才拉 82KB 的大图。
 # 起因见 MAINTENANCE.local.md「国内访问优化」——原先一张 1600x900/167KB 的图被卡片全尺寸下发。
 featured_image_preview: featured-image-preview.webp
+images:
+  - featured-image.webp
+seo:
+  images:
+    - featured-image.webp
+featured_image_alt: ""
 tags: ["hexo", "fluid", "css", "twikoo"]
 categories: []
 ---
+
+<!--more-->
 
 ### 写在前面
 

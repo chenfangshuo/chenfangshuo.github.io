@@ -1,0 +1,24 @@
+{{ printf "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>" | safeHTML }}
+{{- /*
+  站点侧覆盖：来源 themes/FixIt/layouts/sitemap.xml @ v1.0.0-beta.5。
+  唯一差异：末尾补 /archives/ —— 它是 home 的 archives 输出，不在 .Pages 里，
+  主题模板不会收录。升级主题时先 diff 本文件与主题同名文件。
+*/ -}}
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  {{- range where .Pages "Sitemap.Disable" "ne" true -}}{{ if .Permalink }}
+  <url>
+    <loc>{{ .Permalink }}</loc>{{ if not .Lastmod.IsZero }}
+    <lastmod>{{ safeHTML (.Lastmod.Format "2006-01-02T15:04:05-07:00") }}</lastmod>{{ end }}{{ with .Sitemap.ChangeFreq }}
+    <changefreq>{{ . }}</changefreq>{{ end }}{{ if ge .Sitemap.Priority 0.0 }}
+    <priority>{{ .Sitemap.Priority }}</priority>{{ end }}{{ if .IsTranslated }}{{ range .Translations }}
+    <xhtml:link rel="alternate" hreflang="{{ .Language.Locale }}" href="{{ .Permalink }}"/>{{ end }}
+    <xhtml:link rel="alternate" hreflang="{{ .Language.Locale }}" href="{{ .Permalink }}"/>{{ end }}
+  </url>{{ end }}{{ end }}
+  {{- /* /archives/ 是 home 的 archives 输出，不在 .Pages 里，单独补一条。 */ -}}
+  <url>
+    <loc>{{ "archives/" | absURL }}</loc>
+    {{- with site.Home.Lastmod }}{{ if not .IsZero }}
+    <lastmod>{{ safeHTML (.Format "2006-01-02T15:04:05-07:00") }}</lastmod>
+    {{- end }}{{ end }}
+  </url>
+</urlset>

@@ -4,7 +4,7 @@
 # 这里只写「与主题默认值不同」的项，其余全部继承 themes/FixIt/hugo.toml。
 # Hugo 默认会深度合并主题的 params，所以下面的 params 是增量覆盖，不会丢主题默认值。
 #
-# ⚠️ 主题已钉在 v1.0.0-beta.1，请勿运行 `git submodule update --remote`
+# ⚠️ 主题已钉在 v1.0.0-beta.5，请勿运行 `git submodule update --remote`
 #    （要升级请显式 checkout 新 tag，见 README/计划文档）
 #
 # 主题配置参考：themes/FixIt/hugo.toml（含全部键名与注释）
@@ -41,8 +41,10 @@ posts = "/:slug/"
 # =====================================================================================
 [params]
 
-description = "ForSure 的个人博客"
-keywords = ["ForSure", "博客", "AMD"]
+description = "ForSure 的个人博客：电源与硬件、MPV/HDR、网络与自建服务的折腾记录"
+keywords = ["ForSure", "博客", "电源", "硬件", "MPV", "网络", "Hugo"]
+# 非文章页（列表 / 标签 / 404）的 OG/Twitter 兜底图；文章页用自己的 images 覆盖。
+images = ["/og-home.png"]
 default_theme = "dark"       # 旧站 dark_mode.default: dark
 summary_plainify = true
 date_format = "2006-01-02"
@@ -182,9 +184,17 @@ code = ""   # 曾为 "forsure"
 
 # 把上面的 partial 挂到 <head>
 # favicon = 补 SVG 图标 + web manifest（主题只输出 ico/png，见 layouts/_partials/favicon.html）
+# seo-extra = og:image:alt / 宽高 / twitter:image:alt（主题 head 不输出这些）
+# share-wechat = 文章页分享按钮旁的微信扫码入口（见 layouts/_partials/share-wechat.html）
 [params.custom_partials]
-head = ["goatcounter", "favicon"]
+head = ["goatcounter", "favicon", "seo-extra"]
 footer = ["powered"]
+post_footer_after = ["share-wechat"]
+
+# --- 分享按钮 -------------------------------------------------------------------
+# 主题默认开 X / Facebook / 微博；微信由站点侧 share-wechat.html + share-wechat.js 实现。
+[params.share]
+WeChat = true
 
 # --- 图标 -----------------------------------------------------------------------
 # 主题默认值（mask_color #FF7359 / tile_color #2d89ef）都不是本站的色，
@@ -198,6 +208,18 @@ tile_color = "#1D2025"    # = 图标底板色，Windows 磁贴不再出戏
 # 主题默认 cover = ""，导致首页分享出去 twitter:card 是 summary 且没有任何图。
 [params.seo]
 cover = "/og-home.png"
+
+# JSON-LD 的 publisher。主题默认 name 为空，会把 BlogPosting 输出成 "name":""。
+# logo_url 用根路径的 PWA 图标：/images/ 被 robots.txt 屏蔽，不要用头像。
+[params.seo.publisher]
+name = "ForSure's Blog"
+logo_url = "/android-chrome-512x512.png"
+
+# --- 搜索引擎验证 ---------------------------------------------------------------
+# 空值不会输出任何 meta。GSC 选「HTML 标记」验证后把 content 填到 google。
+[params.verification]
+google = ""
+bing = ""
 
 # --- 页脚 -----------------------------------------------------------------------
 [params.footer]
@@ -261,7 +283,7 @@ weight = 2
 icon = "fa-solid fa-link"
 
 # =====================================================================================
-# 以下为「结构性配置」，从 themes/FixIt/hugo.toml @ v1.0.0-beta.1 原样复制而来。
+# 以下为「结构性配置」，从 themes/FixIt/hugo.toml @ v1.0.0-beta.5 原样复制而来。
 #
 # 为什么必须复制进来：Hugo 从「主题自己的配置文件」只默认合并 params / menus /
 # outputFormats / mediaTypes 四项，markup、outputs、taxonomies、frontmatter、sitemap、
@@ -335,7 +357,7 @@ weight = 80
 [module]
 
 [module.hugoVersion]
-min = "0.166.0"
+min = "0.169.0"
 
 # -------------------------------------------------------------------------------------
 # Markup Configuration
@@ -470,6 +492,13 @@ privacyEnhanced = true
 # See: https://gohugo.io/configuration/output-formats/
 # -------------------------------------------------------------------------------------
 
+
+# 修 /archives/、/offline/、/link/ 的重复 canonical：
+# 渲染这些 home 的非 HTML 输出时，.AlternativeOutputFormats 会把 html 格式
+# （rel 默认是 canonical）也列进去，于是主题 head 又输出一条指向首页的 canonical。
+# 把 html 标记为 notAlternative 即可；普通 HTML 页面自身的 alternatives 本来就不含 html。
+[outputFormats.html]
+notAlternative = true
 
 [outputs]
 home = [

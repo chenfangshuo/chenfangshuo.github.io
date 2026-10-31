@@ -9,6 +9,12 @@ description: "一个 Windows PowerShell 脚本：测出当前线路到 Cloudflar
 keywords: ["Cloudflare", "优选 IP", "hosts", "网站加速", "PowerShell", "PT"]
 featured_image: featured-image.webp
 featured_image_preview: featured-image-preview.webp
+images:
+  - featured-image.webp
+seo:
+  images:
+    - featured-image.webp
+featured_image_alt: ""
 tags: ["cloudflare", "hosts", "powershell", "pt", "network"]
 categories: []
 ---

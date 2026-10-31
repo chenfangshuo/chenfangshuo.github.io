@@ -1,0 +1,145 @@
+{{- /*
+  站点侧覆盖：来源 themes/FixIt/layouts/_partials/plugin/image.html @ v1.0.0-beta.5。
+
+  与主题版本的唯一差异是 $alt 的计算：posts/single.html 给 hero 封面传的是
+  "Title"（值为页面 Description），主题原逻辑 `$alt := .Alt | default $src`
+  会把图片 URL 当成 alt。这里让 featured image 优先用 featured_image_alt /
+  页面标题；其它图片仍按 Alt → Title → src 回退。
+
+  ⚠️ 升级主题时先 diff 本文件与主题同名文件，只重新应用这一处差异。
+*/ -}}
+
+{{- /*
+  Image resource plugin.
+  Handles page resources, global resources, and remote images.
+  Supports optimisation, srcset generation, black list filtering, and remote caching.
+
+  Pass .Page when the caller needs page-level config override (e.g., content images).
+  Omit .Page for decorative/site-level images (e.g., logos, avatars, badges).
+
+  @param {String} .Src - Image path (page resource, global resource, or remote URL)
+  @param {Object} [.Resources] - Page resources (.Resources), required for page resources
+  @param {Array} [.OptimConfig] - srcset processing config, e.g.:
+      slice (dict "Process" "resize 800x webp" "descriptor" "800w")
+      See https://gohugo.io/content-management/image-processing/
+  @param {String} [.Alt] - Alt text
+  @param {String} [.Title] - Title attribute
+  @param {String} [.Caption] - Caption for lightgallery
+  @param {Int} [.Width] - Intrinsic width in pixels
+  @param {Int} [.Height] - Intrinsic height in pixels
+  @param {String} [.Loading] - "eager" or "lazy" (default: "lazy")
+  @param {String} [.Class] - CSS classes
+  @param {String} [.Sizes] - srcset sizes attribute
+  @param {Array} [.Matches] - Resource match names, e.g. ["featured-image-preview", "featured-image"]
+  @param {Boolean} [.Linked] - Wrap in lightgallery link
+  @param {Object} [.Rel] - rel attribute
+  @param {String} [.Decoding] - decoding attribute
+  @param {String} [.Referrerpolicy] - referrerpolicy attribute
+  @param {Boolean} [.Optimise] - Override site param to enable optimisation
+  @param {Boolean} [.CacheRemote] - Override site param to enable remote caching
+  @param {Array} [.BlackList] - Override site param black list
+  @param {Object} [.Page] - Page context for page-level image config override
+
+  @example
+  {{- dict "Src" "cover.jpg" "Resources" .Resources | partial "plugin/image.html" -}}
+  {{- dict "Src" "logo.png" "Class" "logo" "Width" 32 "Height" 32 | partial "plugin/image.html" -}}
+
+  Thanks @HEIGE-PCloud for the original code in the DoIt theme.
+*/ -}}
+
+{{- $config := partial "function/camel-case-keys.html" site.Params.image -}}
+{{- with .Page -}}
+  {{- $config = dict "Page" . "Key" "image" "ToCamel" true | partial "function/param.html" -}}
+{{- end -}}
+{{- $Resources := .Resources | default page.Resources -}}
+{{- $isInline := strings.HasPrefix .Src "data:image" -}}
+{{- $isRemote := urls.Parse .Src | partial "function/is-url-remote.html" -}}
+{{- $resource := dict -}}
+
+{{- /* Get local image resource */ -}}
+{{- if not $isRemote | and (not $isInline) -}}
+  {{- /* Try to get resource by matched names */ -}}
+  {{- $matchNames := .Matches | default (slice (strings.TrimPrefix "./" (urls.Parse .Src).Path)) -}}
+  {{- range $matchNames -}}
+    {{- $resource = $Resources.GetMatch . -}}
+    {{- if $resource -}}{{- break -}}{{- end -}}
+  {{- end -}}
+  {{- /* Try to get resource from page or global resources */ -}}
+  {{- $resource = $resource | default ($Resources.Get .Src) | default (resources.Get .Src) -}}
+{{- end -}}
+
+{{- /* Check if the image is blocked from optimisation */ -}}
+{{- $blackList := .BlackList | default $config.blackList | default slice -}}
+{{- $isBlocked := false -}}
+{{- $regex := "" -}}
+{{- $disableImageTypes := slice "svg" "gif" "avif" -}}
+{{- with $blackList -}}
+  {{- $regex = replace (delimit . "|") "." "\\." -}}
+  {{- $regex = replace $regex "*" ".*" -}}
+  {{- $isBlocked = gt (findRE $regex $.Src | len) 0 -}}
+{{- end -}}
+
+{{- /* Get remote image resource (skip if blocked by black_list) */ -}}
+{{- $cacheRemote := .CacheRemote | default $config.cacheRemote | default false -}}
+{{- if not $resource | and $cacheRemote | and (not $isBlocked) -}}
+  {{- with partial "function/get-remote-image.html" (dict "Src" .Src) -}}
+    {{- $resource = . -}}
+  {{- end -}}
+{{- end -}}
+
+{{- /* raster graphics */ -}}
+{{- $rasterTypes := slice "svg" "avif" -}}
+{{- $isRaster := false -}}
+{{- if $resource -}}
+  {{- if $regex | and (not $isBlocked) -}}
+    {{- $isBlocked = gt (findRE $regex $resource.Name | len) 0 -}}
+  {{- end -}}
+  {{- if not $isBlocked -}}
+    {{- $isBlocked = in $disableImageTypes $resource.MediaType.SubType -}}
+  {{- end -}}
+  {{- $isRaster = in $rasterTypes $resource.MediaType.SubType -}}
+{{- end -}}
+
+{{- /* Optimise image and generate srcset processing */ -}}
+{{- $optim := .OptimConfig -}}
+{{- $optimise := .Optimise | default $config.optimise | default false -}}
+{{- $srcset := "" -}}
+{{- if $optim | and $resource | and $optimise | and (not $isBlocked) -}}
+  {{ $srcsetSlice := slice -}}
+  {{- range $optim -}}
+    {{- if .Process -}}
+      {{- $processed := $resource.Process .Process -}}
+      {{- $srcsetSlice = $srcsetSlice | append (printf "%s %s" $processed.RelPermalink .descriptor) -}}
+    {{- end -}}
+  {{- end -}}
+  {{- $srcset = delimit $srcsetSlice ", " -}}
+{{- end -}}
+
+{{- $src := $resource.RelPermalink | default .Src -}}
+{{- $alt := .Alt -}}
+{{- if not $alt -}}
+  {{- if in (.Matches | default slice) "featured-image" -}}
+    {{- $alt = page.Params.featured_image_alt | default page.Title -}}
+  {{- else -}}
+    {{- $alt = .Title | default $src -}}
+  {{- end -}}
+{{- end -}}
+{{- $caption := .Caption | default $alt -}}
+{{- $height := .Height -}}
+{{- $width := .Width -}}
+{{- if not $isRaster -}}
+  {{- $height = $height | default $resource.Height | default "" -}}
+  {{- $width = $width | default $resource.Width | default "" -}}
+{{- end -}}
+{{- /* 正文懒加载图包一层骨架；hero/头像/卡片不会传 Skeleton。 */ -}}
+{{- $skeleton := and .Skeleton (eq .Loading "lazy") $width $height -}}
+
+{{- if .Linked -}}
+<a class="lightgallery" target="_blank" href="{{ $src }}" title="{{ .Title | default $alt }}" data-thumbnail="{{ $src }}"{{ with $caption }} data-sub-html="<h2>{{ . }}</h2>{{ with $.Title }}<p>{{ . }}</p>{{ end }}"{{ end }}{{ with .Rel }} rel="{{ . }}"{{ end }}>
+{{- end -}}
+{{- if $skeleton }}<span class="image-skeleton">{{- end -}}
+<img {{- with .Class }} class="{{ . }}"{{ end }}{{ with .Loading }} loading="{{ . }}"{{ end }} {{ printf "src='%v'" $src | safeHTMLAttr }}{{ with $srcset }} srcset="{{ . }}"{{ end }}{{ with .Sizes }} sizes="{{ . }}"{{ end }}{{ with $alt }} alt="{{ . }}"{{ end }}{{ with $height }} height="{{ . }}"{{ end }}{{ with $width }} width="{{ . }}"{{ end }}{{ with .Decoding }} decoding="{{ . }}"{{ end }}{{ with .Referrerpolicy }} referrerpolicy="{{ . }}"{{ end }}>
+{{- if $skeleton }}</span>{{- end -}}
+{{- if .Linked -}}
+</a>
+{{- end -}}

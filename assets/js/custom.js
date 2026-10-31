@@ -11,6 +11,8 @@
  *
  * 1) 首页随机一言：从 hitokoto 取一句随机句子，带打字机效果写入 .home-subtitle
  * 2) 雪花特效：同目录的 snow.js（Canvas 实现），由 js.Build 内联进同一份产物
+ * 3) 正文懒加载图片骨架：给 .image-skeleton 加 is-loading / is-loaded，
+ *    让占位呼吸动画在图片加载完成后淡出、图片淡入
  */
 
 import { initSnow } from './snow.js'
@@ -60,10 +62,43 @@ const initHitokoto = async () => {
  *    或手动 purge；import 进来就随 custom.min.<hash>.js 一起指纹化，改完立刻生效。
  */
 
+/**
+ * 3) 正文懒加载图片骨架
+ *
+ *    占位动画与淡入完全由 CSS 负责（custom.scss 第 10 节）；这里只切换两个类：
+ *    - 未加载：is-loading → img opacity 0，::before 呼吸动画可见
+ *    - 已加载：is-loaded  → img 淡入，::before 淡出并停掉动画
+ *
+ *    ⚠️ 缓存命中（img.complete）直接标记 is-loaded，不要先隐藏再淡入，
+ *       否则每次刷新都会闪一下。
+ */
+const initImageSkeletons = () => {
+  document.querySelectorAll('.image-skeleton').forEach((box) => {
+    const img = box.querySelector('img')
+    if (!img) return
+
+    const done = () => {
+      box.classList.remove('is-loading')
+      box.classList.add('is-loaded')
+    }
+
+    if (img.complete && img.naturalWidth > 0) {
+      done()
+      return
+    }
+
+    box.classList.add('is-loading')
+    img.addEventListener('load', done, { once: true })
+    img.addEventListener('error', done, { once: true })
+  })
+}
+
 const init = () => {
   // ⚠️ 顺序有意为之：hitokoto 先启动。两者现在在同一份 bundle 里，而 initHitokoto 是
   //    async（在第一个 await 处就返回，后续不受影响），所以万一下面的 initSnow() 同步抛错，
   //    一言也不会被连累。别把两行对调。
+  //    骨架是同步的，放在最前面，让未加载的图片尽早进入占位状态。
+  initImageSkeletons()
   initHitokoto()
   initSnow()
   console.log('custom.js loaded', fixit && fixit.version)

@@ -9,6 +9,10 @@ description: ""
 keywords: []
 featured_image: ""                                # 1600x900，用 cover.py 生成
 featured_image_preview: ""                        # 800x450。漏了这张，首页卡片会退回下发上面那张大图
+images: ["featured-image.webp"]                   # OG/Twitter 分享图用 1600x900 大图
+seo:
+  images: ["featured-image.webp"]                 # 文章 JSON-LD 用；主题不会从 featured_image 自动推导
+featured_image_alt: ""                            # 封面 alt；留空 = 用页面标题
 tags: []
 categories: []
 ---

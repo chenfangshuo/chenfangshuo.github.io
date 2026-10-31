@@ -1,0 +1,33 @@
+{{- /*
+  站点侧覆盖：来源 themes/FixIt/layouts/_markup/render-image.html @ v1.0.0-beta.5。
+
+  唯一差异：给正文图片传 "Skeleton" true，plugin/image.html 据此在 img 外包一层
+  .image-skeleton（懒加载时的呼吸占位 + 加载完成淡入）。只影响 Markdown 正文图，
+  不会给头像/logo/首页卡片加骨架。
+
+  A Markdown image has three components: the image description, the image destination, and optionally the image title.
+
+![white kitten](/images/kitten.jpg "A kitten!")
+  ------------  ------------------  ---------
+  description      destination        title
+  ------------  ------------------  ---------
+  .Text            .Destination       .Title
+*/ -}}
+{{- $optim := slice
+  (dict "Process" "resize 800x webp" "descriptor" "800w")
+  (dict "Process" "resize 1200x webp" "descriptor" "1200w")
+  (dict "Process" "resize 1600x webp" "descriptor" "1600w")
+-}}
+{{- $lightgallery := .Page.Param "lightgallery" -}}
+{{- if .Title -}}
+  {{- $linked := ne $lightgallery false -}}
+  <figure>
+    {{- dict "Page" .Page "Src" .Destination "Alt" .PlainText "Title" .Title "Caption" .Text "Linked" $linked "Loading" "lazy" "Skeleton" true "Resources" .Page.Resources "OptimConfig" $optim | partial "plugin/image.html" -}}
+    <figcaption class="image-caption">
+      {{- .Title | safeHTML -}}
+    </figcaption>
+  </figure>
+{{- else -}}
+  {{- $linked := (eq $lightgallery "force") | or ($lightgallery | and (ne .Title "")) -}}
+  {{- dict "Page" .Page "Src" .Destination "Alt" .PlainText "Title" .Title "Linked" $linked "Loading" "lazy" "Skeleton" true "Resources" .Page.Resources "OptimConfig" $optim | partial "plugin/image.html" -}}
+{{- end -}}

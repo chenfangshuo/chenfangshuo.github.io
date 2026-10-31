@@ -14,8 +14,9 @@
 User-agent: *
 
 Disallow: /images/
-Disallow: /js/
-Disallow: /css/
+
+# 不屏蔽 /js/ 与 /css/：Googlebot / Bingbot 需要抓取渲染资源才能正确评估页面。
+# （2026-10-31 从主题默认值里删掉；/images/ 仍屏蔽头像、Hero、友链图这类非内容图片。）
 
 Disallow: /*link/
 Disallow: /*offline/

@@ -5,9 +5,15 @@ date: 2026-10-11T14:45:00+08:00
 slug: "mpv-auto-hdr-switcher"
 draft: false
 description: "一个 mpv 脚本：播 HDR 片时自动打开 Windows 的 HDR，播 SDR 内容时切回来，不用再手按 Win+Alt+B。附判定逻辑、安装调参，以及几处有意为之的取舍。"
-keywords: []
+keywords: ["mpv", "HDR", "Lua 脚本", "Windows", "自动切换"]
 featured_image: featured-image.webp                 # 文章封面 1600x900（代码卡片风，与站内代码块同一套视觉）
 featured_image_preview: featured-image-preview.webp # 首页卡片用 800x450
+images:
+  - featured-image.webp
+seo:
+  images:
+    - featured-image.webp
+featured_image_alt: ""
 tags: ["mpv", "hdr", "lua", "windows"]
 categories: []
 ---

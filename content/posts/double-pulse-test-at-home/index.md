@@ -9,6 +9,12 @@ description: "用 100 V TOLT 封装 SGT MOSFET 在桌面上搭一套双脉冲测
 keywords: ["双脉冲测试", "DPT", "MOSFET", "开关损耗", "Rogowski"]
 featured_image: featured-image.webp
 featured_image_preview: featured-image-preview.webp
+images:
+  - featured-image.webp
+seo:
+  images:
+    - featured-image.webp
+featured_image_alt: ""
 tags: ["dpt", "mosfet", "switching-loss", "python"]
 categories: []
 ---

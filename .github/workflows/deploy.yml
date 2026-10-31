@@ -18,6 +18,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch: # 允许手动触发
+    inputs:
+      full:
+        description: "提交 sitemap 里的全部 URL（一次性补交）"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -33,8 +38,8 @@ defaults:
     shell: bash
 
 env:
-  HUGO_VERSION: 0.167.0
-  DART_SASS_VERSION: 1.105.1
+  HUGO_VERSION: 0.169.0
+  DART_SASS_VERSION: 1.107.1
   TZ: Asia/Shanghai
   # 把并行渲染的 worker 数压到 1。
   # 起因是本地（Windows）构建有三到六成概率「卡很久」：Hugo 并发去和多个 Dart Sass
@@ -166,20 +171,40 @@ jobs:
           echo "$resp" | grep -q '"success":true' \
             || { echo "::error::Cloudflare purge 失败——边缘可能继续返回旧 HTML"; exit 1; }
 
-  # 把新站的 URL 推给百度，保持收录（旧站靠 hexo-baidu-url-submit 做这件事）
-  notify-baidu:
-    needs: purge-cloudflare # 排在 purge 之后，保证百度抓到的是新内容
+  # 把本次变更的文章 URL 推给百度和 IndexNow（Bing / Yandex 等）。
+  #
+  # 旧实现每次部署都重推 sitemap 全部 32 条，连续触发百度 "over quota"，
+  # 而 job 是 continue-on-error，CI 一直绿着没人发现。现在只推 git diff
+  # 里改过的 content/posts/*/index.md；没有文章变更就明确跳过。
+  #
+  # Google 没有对应的主动推送接口（sitemap ping 已废弃），靠 GSC + sitemap。
+  notify-search-engines:
+    needs: purge-cloudflare # 排在 purge 之后，保证提交时线上已是新内容
     runs-on: ubuntu-latest
-    continue-on-error: true # 百度接口挂了也不能影响站点发布
+    continue-on-error: true # 推送失败不能影响站点发布
+    env:
+      # IndexNow key 是公开验证值（key 文件必须公开可访问），不是 Secret。
+      # 对应 static/6b1e25fad79d65c43e942e2a7ac3a226.txt。
+      INDEXNOW_KEY: "6b1e25fad79d65c43e942e2a7ac3a226"
+      BAIDU_TOKEN: ${{ secrets.BAIDU_TOKEN }}
+      BEFORE: ${{ github.event.before }}
+      AFTER: ${{ github.sha }}
+      FULL: ${{ inputs.full }}
     steps:
-      - name: Submit sitemap URLs to Baidu
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0 # 需要完整历史才能 git diff before..after
+
+      - name: Submit changed URLs
         run: |
           set -uo pipefail
-          sleep 15 # 给 Pages 一点时间
-          curl -sS --max-time 30 https://forsure.live/sitemap.xml \
-            | grep -oE '<loc>[^<]+' | sed 's|<loc>||' > urls.txt || true
-          echo "URLs to submit: $(wc -l < urls.txt)"
-          head -5 urls.txt
-          # token 存在仓库 Secret 里，不要写进仓库（旧站把它明文写在 _config.yml 里了）
-          curl -sS --max-time 30 -H 'Content-Type:text/plain' --data-binary @urls.txt \
-            "http://data.zz.baidu.com/urls?site=forsure.live&token=${{ secrets.BAIDU_TOKEN }}"
+          sleep 10 # 给 Pages 一点时间
+          if [ "${FULL:-}" = "true" ]; then
+            python3 scripts/seo-submit.py --mode full
+          elif [ -n "${BEFORE:-}" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            python3 scripts/seo-submit.py --mode changed --before "$BEFORE" --after "$AFTER"
+          else
+            # workflow_dispatch 或首次推送：用上一个提交作比较基准
+            python3 scripts/seo-submit.py --mode changed --before HEAD^ --after HEAD
+          fi

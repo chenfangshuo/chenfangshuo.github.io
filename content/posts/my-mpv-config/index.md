@@ -5,9 +5,15 @@ date: 2026-10-11T13:28:45+08:00
 slug: "my-mpv-config"
 draft: false
 description: "一份自用的 Windows mpv 配置：gpu-next + D3D11 硬解，HDR 直通与补帧都开了，配 uosc 界面。附放置位置、逐项取舍说明和几个可选方案。"
-keywords: []
+keywords: ["mpv", "mpv.conf", "HDR", "Windows", "uosc"]
 featured_image: featured-image.webp                 # 文章封面 1600x900 / 21KB（代码卡片风，与站内代码块同一套视觉）
 featured_image_preview: featured-image-preview.webp # 首页卡片用 800x450 / 8KB，见 MAINTENANCE.local.md「国内访问优化」
+images:
+  - featured-image.webp
+seo:
+  images:
+    - featured-image.webp
+featured_image_alt: ""
 tags: ["mpv", "windows", "config", "hdr"]
 categories: []
 ---
