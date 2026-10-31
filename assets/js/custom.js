@@ -11,8 +11,8 @@
  *
  * 1) 首页随机一言：从 hitokoto 取一句随机句子，带打字机效果写入 .home-subtitle
  * 2) 雪花特效：同目录的 snow.js（Canvas 实现），由 js.Build 内联进同一份产物
- * 3) 正文懒加载图片骨架：给 .image-skeleton 加 is-loading / is-loaded，
- *    让占位呼吸动画在图片加载完成后淡出、图片淡入
+ * 3) 正文懒加载图片骨架：图片加载完成后给 .image-skeleton 加 is-loaded，
+ *    让盖在图片上方的占位动画淡出
  */
 
 import { initSnow } from './snow.js'
@@ -65,29 +65,25 @@ const initHitokoto = async () => {
 /**
  * 3) 正文懒加载图片骨架
  *
- *    占位动画与淡入完全由 CSS 负责（custom.scss 第 10 节）；这里只切换两个类：
- *    - 未加载：is-loading → img opacity 0，::before 呼吸动画可见
- *    - 已加载：is-loaded  → img 淡入，::before 淡出并停掉动画
+ *    骨架是盖在图片上方的一层（custom.scss 第 10 节），加载期间挡住浏览器的
+ *    渐进绘制；这里只负责在图片 load / error 后加 is-loaded，让骨架淡出。
  *
- *    ⚠️ 缓存命中（img.complete）直接标记 is-loaded，不要先隐藏再淡入，
- *       否则每次刷新都会闪一下。
+ *    ⚠️ 不要改回“隐藏 img、再淡入 img”的写法：慢网下浏览器会先画出图片的
+ *       部分内容，JS 还没把 img 压到 0 就会从骨架上面露出来（2026-10-31 实测）。
+ *    ⚠️ 缓存命中（img.complete）直接标记 is-loaded，避免刷新时骨架多留一帧。
  */
 const initImageSkeletons = () => {
   document.querySelectorAll('.image-skeleton').forEach((box) => {
     const img = box.querySelector('img')
     if (!img) return
 
-    const done = () => {
-      box.classList.remove('is-loading')
-      box.classList.add('is-loaded')
-    }
+    const done = () => box.classList.add('is-loaded')
 
     if (img.complete && img.naturalWidth > 0) {
       done()
       return
     }
 
-    box.classList.add('is-loading')
     img.addEventListener('load', done, { once: true })
     img.addEventListener('error', done, { once: true })
   })

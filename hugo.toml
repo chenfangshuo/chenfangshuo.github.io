@@ -187,7 +187,7 @@ code = ""   # 曾为 "forsure"
 # seo-extra = og:image:alt / 宽高 / twitter:image:alt（主题 head 不输出这些）
 # share-wechat = 文章页分享按钮旁的微信扫码入口（见 layouts/_partials/share-wechat.html）
 [params.custom_partials]
-head = ["goatcounter", "favicon", "seo-extra"]
+head = ["goatcounter", "favicon", "seo-extra", "image-skeleton-noscript"]
 footer = ["powered"]
 post_footer_after = ["share-wechat"]
 

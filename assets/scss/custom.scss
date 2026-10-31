@@ -545,11 +545,13 @@ html.share-wechat-open {
 //
 //     - 只包裹 Markdown 正文图（render-image.html 传 Skeleton=true），
 //       不给头像 / logo / 首页卡片加骨架。
-//     - 占位是慢速呼吸的 shimmer：3.8s ease-in-out，高光扫过 + 轻微明暗，
-//       不是快速闪烁，尽量不抢正文。
-//     - 图片加载完成后 .is-loaded：图片 0.55s 淡入，骨架 0.45s 淡出。
+//     - 骨架是**盖在图片上方**的一层（z-index: 2），不是垫在下面：
+//       慢网下浏览器会从上到下渐进绘制图片，如果骨架在下面，未加载完的图片会
+//       从骨架上面露出来。盖在上面才能保证加载期间只看到骨架。
+//     - 占位是慢速呼吸的 shimmer：3.8s ease-in-out，高光扫过 + 轻微明暗。
+//     - 图片加载完成后 .is-loaded：骨架 0.45s 淡出，露出下面已经完整加载的图片。
 //     - 颜色用 light-dark() 跟随明暗主题；不支持的浏览器回退到深色。
-//     - 没有 JS 时：骨架仍在 img 后面，图片正常显示，只是没有淡入。
+//     - 没有 JS 时由 image-skeleton-noscript.html 直接隐藏骨架，图片正常显示。
 // -----------------------------------------------------------------------------
 .image-skeleton {
   position: relative;
@@ -560,7 +562,8 @@ html.share-wechat-open {
     content: "";
     position: absolute;
     inset: 0;
-    z-index: 0;
+    z-index: 2; // 盖在 img 上方，挡住渐进加载中的图片
+    pointer-events: none; // 加载期间不挡灯箱/链接点击
     border-radius: var(--fi-global-border-radius, 10px);
     // 兜底：深色；支持 light-dark() 时自动跟随明暗主题。
     background-color: #1b2230;
@@ -578,22 +581,11 @@ html.share-wechat-open {
     display: block;
     width: 100%;
     height: auto;
-    transition: opacity .55s ease;
   }
 
-  &.is-loading > img {
+  &.is-loaded::before {
+    animation: none;
     opacity: 0;
-  }
-
-  &.is-loaded {
-    &::before {
-      animation: none;
-      opacity: 0;
-    }
-
-    > img {
-      opacity: 1;
-    }
   }
 }
 
@@ -613,10 +605,6 @@ html.share-wechat-open {
 @media (prefers-reduced-motion: reduce) {
   .image-skeleton::before {
     animation: none;
-  }
-
-  .image-skeleton > img,
-  .image-skeleton::before {
     transition: none;
   }
 }
