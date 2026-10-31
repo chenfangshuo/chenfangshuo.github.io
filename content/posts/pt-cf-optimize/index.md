@@ -5,7 +5,7 @@ date: 2026-10-29T22:20:00+08:00
 slug: "pt-cf-optimize"
 draft: false
 lightgallery: "force"   # 正文图片灯箱；"force" = 无 title 的图也进相册
-description: "一个 Windows PowerShell 脚本：测出当前线路到 Cloudflare 各边缘节点较快的 IP，逐站验证后写进 hosts，改善网页 TTFB。不代理、不登录、不改出口 IP，可一键回滚。"
+description: "一个 Windows PowerShell 脚本：测出当前线路到 Cloudflare 各边缘节点较快的 IP，逐站验证后写进 hosts，改善网页 TTFB。双击 Start.bat 就能用菜单操作，也可以走命令行；不代理、不登录、不改出口 IP，可一键回滚。"
 keywords: ["Cloudflare", "优选 IP", "hosts", "网站加速", "PowerShell", "PT"]
 featured_image: featured-image.webp
 featured_image_preview: featured-image-preview.webp
@@ -27,6 +27,7 @@ categories: []
 
 ## 它做什么
 
+- 提供 `Start.bat` 菜单：导入域名、DryRun、写入 hosts、回滚；也可以走命令行；
 - 输入 `domains.txt`，测出当前线路到 CF 边缘节点较快的 IPv4；
 - 对每个域名发少量 HEAD 请求，确认这个 IP 真的能打开站点；
 - 只维护 hosts 里一个带标记的区块，支持备份和一键回滚。
@@ -35,59 +36,67 @@ categories: []
 
 ## 怎么用
 
-**1）下载脚本**
+**1）下载并双击 `Start.bat`**
 
-到 [Releases](https://github.com/chenfangshuo/Cloudflare-Hosts-Optimizer/releases/latest) 下载压缩包。资源管理器的「全部解压缩」会先建一个以压缩包命名的目录，里面才是 `Cloudflare-Hosts-Optimizer\`，脚本和 `lib\` 都在这一层——进入内层目录运行。需要 Windows 10/11、PowerShell 7+，以及系统自带的 `curl.exe`。
+到 [Releases](https://github.com/chenfangshuo/Cloudflare-Hosts-Optimizer/releases/latest) 下载最新的 zip，解压到任意本地目录（不要在压缩包里直接运行），双击里面的 `Start.bat`。
 
-**2）可选：放好 CFST**
+运行环境只需要 Windows 10/11 和系统自带的 `curl.exe`；PowerShell 7 由启动器检查，缺了会问你要不要用 winget 安装。装好后就是一个用上下方向键选择的菜单，不用记命令。
 
-从 [CloudflareSpeedTest Releases](https://github.com/XIU2/CloudflareSpeedTest/releases/latest) 下载 `cfst.exe` 和 `ip.txt`，放到脚本旁的 `cfst\` 目录：
+**2）在菜单里准备域名**
 
-```text
-Cloudflare-Hosts-Optimizer\
-  cfst\
-    cfst.exe
-    ip.txt
-```
+选「导入 / 编辑域名」：可以从 PT-Depiler 备份、Windows 代理旁路、文本或剪贴板导入，也可以选「手动编辑」，用记事本一行写一个域名。建议只填确认由 Cloudflare 代理的站点——填错了也不会写坏，逐站验证会跳过它，只是白跑一次。
 
-不放也能用，脚本会自动回退到内置扫描，但一般 CFST 的候选覆盖更广、效果更好。
+导入会先把结果写到 `domains.imported.txt` 给你确认，再合并到 `domains.txt`，不会直接改主列表。
 
-**3）准备域名**
+**3）可选：下载 CFST**
 
-`domains.txt` 一行一个域名，建议只填确认由 Cloudflare 代理的站点。填错了也不会写坏，逐站验证会跳过它，只是白跑一次。
+菜单里选「下载 / 更新 CFST」：能直连 GitHub 就直连，不行就选系统代理，或者用浏览器打开菜单里给的蓝奏云下载页，下载 zip 后用「从本地 zip 安装」。也可以手动把 `cfst.exe` 和 `ip.txt` 放进脚本旁的 `cfst\` 目录。
 
-也可以从这些来源导入：
+不放也能用，脚本会自动回退到内置扫描，只是候选覆盖小一些。
+
+**4）先看结果，再写 hosts**
+
+选「只看结果 (DryRun)」完整跑一遍：不写 hosts、不需要管理员；但**扫描、测速和逐站 HEAD 验证都会照常执行**——它只是不写入，不是完全不发请求。
+
+第一次大约 8–15 分钟，过程中会显示每一步的进度和用时。确认决策表没问题后，选「正式写入 hosts」，会弹出 UAC 要管理员权限。
+
+**5）出问题回滚**
+
+万一写入后某个站点打不开，选「回滚到上次备份」就能恢复。菜单里还有「环境自检 (Doctor)」「查看域名」「查看上次报告」「定时任务」等；Doctor 是只读检查，不会访问目标站点。
+
+### 命令行用法
+
+上面的功能都能用命令行完成，适合脚本化或排查。完整参数见仓库的 `docs/parameters.md`。
 
 ```powershell
+# 准备域名（任选一种）
 .\Import-Domains.ps1 -Source Depiler -Path '.\PTD_backup.zip' -Merge
 .\Import-Domains.ps1 -Source ProxyBypass -Merge
 .\Import-Domains.ps1 -Source Text -Path .\sites.txt -Merge
 .\Import-Domains.ps1 -Source Clipboard -Merge
-```
 
-导入后先检查 `domains.txt` 里确实是需要的域名，再往下跑。
+# 可选：安装 CFST（直连 / 走系统代理 / 从本地 zip）
+.\Install-Cfst.ps1
+.\Install-Cfst.ps1 -UseProxy
+.\Install-Cfst.ps1 -FromFile .\cfst_windows_amd64.zip
 
-**4）先看结果，再写 hosts**
-
-DryRun 不需要管理员，也不会改 hosts；但**扫描、测速和逐站 HEAD 验证都会照常执行**——它只是不写入，不是完全不发请求。
-
-```powershell
+# 先看结果，再写入
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\Cloudflare-Hosts-Optimizer.ps1 -DryRun
-```
-
-看一眼决策表，确认没问题后，用管理员 PowerShell 正式写入：
-
-```powershell
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\Cloudflare-Hosts-Optimizer.ps1
+
+# 回滚 / 自检
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Cloudflare-Hosts-Optimizer.ps1 -Rollback
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Cloudflare-Hosts-Optimizer.ps1 -Doctor
 ```
 
-**5）出问题一键回滚**
+定时任务也可以在菜单里装；命令行等价于：
 
 ```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File .\Cloudflare-Hosts-Optimizer.ps1 -Rollback
+# 每 14 天 DryRun（不需要管理员）
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Cloudflare-Hosts-Optimizer.ps1 -InstallTask -TaskMode DryRun
 ```
 
-需要定时运行的话，见 [`docs/scheduling.md`](https://github.com/chenfangshuo/Cloudflare-Hosts-Optimizer/blob/main/docs/scheduling.md)。
+需要完整参数和定时任务的 AutoApply 风险说明，见仓库的 [`docs/parameters.md`](https://github.com/chenfangshuo/Cloudflare-Hosts-Optimizer/blob/main/docs/parameters.md) 和 [`docs/scheduling.md`](https://github.com/chenfangshuo/Cloudflare-Hosts-Optimizer/blob/main/docs/scheduling.md)。
 
 ## 它怎么选
 
@@ -101,7 +110,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\Cloudflare-Hosts-Optimizer.ps1 -
 
 ![一次实际运行](run-result.webp "一次实际运行：基线不可用，脚本切到 104.17.137.197，TTFB 0.53s")
 
-这次 `forsure.live` 的基线不可用，脚本直接选了 `104.17.137.197`，TTFB 0.53s。截图里也能看到代理旁路的提示：如果域名不在 `ProxyOverride` 里，脚本会提醒出口 IP 可能变化。（截图取自改名前的运行记录，截图里的旧目录名现在已换成 `Cloudflare-Hosts-Optimizer`。）
+这次 `forsure.live` 的基线不可用，脚本直接选了 `104.17.137.197`，TTFB 0.53s。截图里也能看到代理旁路的提示：如果域名不在 `ProxyOverride` 里，脚本会提醒出口 IP 可能变化。（截图是改名前的控制台输出；v0.5.1 起多了菜单和步骤进度，目录名也已换成 `Cloudflare-Hosts-Optimizer`。）
 
 ## 注意事项
 
@@ -121,4 +130,4 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\Cloudflare-Hosts-Optimizer.ps1 -
 
 ## 最后
 
-仓库在 [chenfangshuo/Cloudflare-Hosts-Optimizer](https://github.com/chenfangshuo/Cloudflare-Hosts-Optimizer)，MIT 协议，不含任何第三方二进制（CFST 需自行下载）。有问题可以直接提 [Issue](https://github.com/chenfangshuo/Cloudflare-Hosts-Optimizer/issues)。
+仓库在 [chenfangshuo/Cloudflare-Hosts-Optimizer](https://github.com/chenfangshuo/Cloudflare-Hosts-Optimizer)，MIT 协议，不含任何第三方二进制；CFST 是可选的，安装器会在需要时从官方仓库下载。有问题可以直接提 [Issue](https://github.com/chenfangshuo/Cloudflare-Hosts-Optimizer/issues)。
