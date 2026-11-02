@@ -149,13 +149,13 @@ $home-media-radius: 1rem;
     transition: transform .5s cubic-bezier(.25, .46, .45, .94),
                 filter .5s cubic-bezier(.25, .46, .45, .94);
     filter: contrast(100%); // 显式给个起始值，否则 filter 从 none 开始无法平滑过渡
-    // ⚠️ 这里**不要**加 will-change: transform。加了会让每张卡片封面常驻一个合成图层，
-    //    而页面静止时合成器根本不画帧、本来是白拿的；可雪花那块画布是每秒重绘 60 次的全屏
-    //    图层，会把它们全部拖进每一帧——首页 4~5 张卡片（dpr2 下每张约 1.07 Mpx）实测多花
-    //    **8W**（26W → 隐藏缩略图后 18W），而文章页没有卡片封面，同样雪花只花 7W。
-    //    悬停放大不需要它：transform 过渡 Chrome 会在动画期间自动提升图层；filter 过渡是
-    //    绘制级动画，本来就得逐帧重栅格，will-change: transform 帮不上它。实测见 MAINTENANCE
-    //    「性能：首页卡片封面」。
+    // ⚠️ 这里**不要**加 will-change: transform。首页 4~5 张卡片封面在雪花运行时实测多花
+    //    **8W**（26W → 把页面 <img> 全藏起来后 18W），而文章页没有卡片封面，同样的雪花只花 7W。
+    //    归因（2026-10-12 实测，2026-11-02 订正）：这 8W 是"画布每帧重绘把整页栅格弄脏、
+    //    这些图被**重新画了**一遍"，**不是**"多合成了一层" —— 删掉卡片封面的 will-change
+    //    并没有降功耗，藏图才降。
+    //    悬停放大也不需要 will-change：transform 过渡 Chrome 会在动画期间自动提升图层；
+    //    filter 过渡是绘制级动画，本来就得逐帧重栅格。实测见 MAINTENANCE「性能：首页卡片封面」。
   }
 }
 
@@ -444,8 +444,11 @@ $home-media-radius: 1rem;
 //       [data-theme-mode='light'|'dark'] 覆盖它（core/_root.scss），而 color-scheme 可继承
 //       → canvas 能把 light-dark() 解析成当前主题的 rgb()。
 //
-//    ⚠️ 别给它加 transform / filter / backdrop-filter：那会新建包含块，
-//       fixed 定位会从"相对视口"变成"相对该元素"，画布尺寸立刻算错。
+//    ⚠️ 别给它加 transform / filter / backdrop-filter：它们会改变这个图层自己的渲染路径
+//       与合成时机（实测功耗变差）。**给画布自身加，不会改变它自己的定位** —— 包含块规则
+//       作用在**后代**上；而且本站祖先链里没有 transform / filter / contain，fixed 就是
+//       相对视口。早先那句"fixed 会从相对视口变成相对该元素"，是把影响后代的规则套到了
+//       画布自身。（若将来给 <body>/<html> 这类祖先加了 transform，那句才会成立。）
 // -----------------------------------------------------------------------------
 .snow-canvas {
   position: fixed;
@@ -458,10 +461,10 @@ $home-media-radius: 1rem;
   //    文章配图）都会跟着逐帧重新栅格化。实测：把页面上的 <img> 全
   //    `visibility:hidden` 之后功耗立刻降约 8W，而删掉卡片封面的 will-change 没用 ——
   //    说明那些图不是被"多合成"了一次，而是被重新"画"了一遍。
-  //    只加 will-change，**不要**加 transform / filter / backdrop-filter：will-change 只做
-  //    图层提升、不改变任何绘制结果；而 transform 之类会真的改变渲染路径。
-  //    （第 8 节下面那条"别加 transform"的老提醒说的是会新建包含块影响**后代**的 fixed
-  //      定位 —— 画布没有后代，will-change 也不做这件事。）
+  //    只加 will-change，**不要**加 transform / filter / backdrop-filter：will-change: transform
+  //    只做图层提升 —— 它同样会给**后代**建包含块与层叠上下文，但既不改变画布自身 fixed 的
+  //    参照，也不改变绘制结果；而 transform / filter 会改变这个图层自己的渲染路径与合成时机
+  //    （功耗理由见第 8 节顶部那条，别在这里另编一套）。
   will-change: transform;
   color: light-dark(rgb(95, 112, 138), rgb(255, 255, 255)); // 浅色中灰蓝 / 深色纯白
 }

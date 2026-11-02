@@ -14,7 +14,9 @@
  *
  * 由同目录的 custom.js `import { initSnow } from './snow.js'` 引入。Hugo 的
  * js.Build（esbuild）会把它内联进同一份 custom.min.<hash>.js —— 那份是带指纹、带 SRI、
- * 被不缓存的 HTML 引用的，所以改完立刻生效。
+ * 被 HTML 引用的。名字变了引用就变，所以**资源不需要手动 purge**；但别以为"改完立刻生效"
+ * 是绝对的：HTML 经 Cloudflare 有边缘缓存，部署后还有一两分钟的收敛窗口（见 MAINTENANCE
+ * 的「部署后的旧版窗口」）。
  * 换成 static/ 就做不到这点（static/ 不走资源管线、不带 hash，改一次要等 Cloudflare
  * 4 小时过期或手动 purge，见 hugo.toml 里的相关说明）。
  *
@@ -62,6 +64,10 @@ const PAGE_ANCHORED = true   // ★开关：true = 雪花锚定在页面上（�
 
 const SPEED = 60             // 近景下落速度：1000px 视口约 17s 穿屏（旧版约 110px/s）
 const MOUSE_WIND = 0.3       // 鼠标风上限 = 0.3 × SPEED = 18 px/s（旧系数 0.6 太猛）
+// 鼠标风一阶平滑的时间常数（秒）。150ms ⇒ 约 450ms 到 95%：快速左右反转时，前约 104ms
+// 仍沿旧风向 —— 这是**有意的滤波延迟**，换来的是鼠标移开时横向速度不突然断掉
+// （2026-11-02 在对比页上实测，用户选定这一版）。只作用于横向风，不影响落速 / 进场 / 密度。
+const MOUSE_TAU = 0.15
 const BASE_DRIFT = 4         // 每片自带的水平漂移 ±4 px/s，让居中区域也不是笔直下落
 // 密度。注意它是**按面积**算的，所以屏幕越大雪越多：1440×900 一屏约 76 片
 // （1440×900 ÷ 17000 = 76.2），而 4K（3840×2160）一屏约 488 片 —— 面积是 6.4 倍。
@@ -155,7 +161,9 @@ const RECYCLE_SPREAD = 250
 const GRADIENT = [[0, 1], [0.5, 0.9], [0.8, 0.3], [1, 0]]
 
 // -----------------------------------------------------------------------------
-// 状态（循环里不新建任何对象，也就没有 GC 抖动）
+// 状态（循环里不**显式**构造临时对象；这不等于"零分配"——引擎层仍可能有分配，
+//   2026-10-17 的 CDP 分配采样确实在 frame 上有归因，只是没定位到具体对象类型。
+//   要谈 GC 请用实测，别把这句话当承诺。）
 // -----------------------------------------------------------------------------
 let canvas
 let ctx
@@ -168,8 +176,10 @@ let docH = 0        // 文档高度（PAGE_ANCHORED 为 false 时它就是视口
 let scrollY = 0     // 缓存的滚动量：由被动 scroll 监听更新，循环里不读 window.scrollY
 let groundY = 0     // "地面"在文档坐标里的位置（= 屏幕底边），见 frame() 开头那段说明
 let prevScrollY = 0 // 上一帧的滚动量，用来算 dScroll（"这次越界是不是滚动推的"）
-let dpr = 1
-let mouseNx = 0     // 鼠标归一化横坐标：-1 最左 … 0 正中 … +1 最右
+let dpr = 1         // 封顶后的 dpr（实际用来画图）
+let rawDpr = 1      // window.devicePixelRatio 原始值：frame() 每帧比它来发现"跨屏/改缩放"
+let mouseNx = 0     // 鼠标归一化横坐标（目标值）：-1 最左 … 0 正中 … +1 最右
+let smoothNx = 0    // 上面的平滑值：每渲染帧逼近一次，wind 与 taper 都用它（见 MOUSE_TAU）
 let raf = 0
 let last = 0
 let running = false
@@ -229,6 +239,10 @@ const makeSprite = (rgb) => {
   const c = document.createElement('canvas')
   c.width = c.height = size
   const g = c.getContext('2d')
+  // 离屏画布同样可能拿不到上下文（上下文数量超限等）。这里**返回 null 而不是抛**：
+  // 本函数被三处调用，处置方式各不相同（首次铺场 → 整场放弃；主题/DPR 重建 → 保留旧贴图），
+  // 由调用方决定。主画布那条判空在 initSnow 里，别把两者混为一谈。
+  if (!g) return null
   const mid = size / 2
   const grad = g.createRadialGradient(mid, mid, 0, mid, mid, mid)
   for (const [at, a] of GRADIENT) grad.addColorStop(at, `rgba(${rgb}, ${a})`)
@@ -399,7 +413,10 @@ const syncField = () => {
 // [2043, 2620) —— 结果屏内 70 片**全在左半边、右半边 0~1 片**，屏内密度只有期望的 69%。
 // 也就是说这一档坏掉的不是"片数"，是"横向分布"。
 //
-// 两处都按比例缩放，等价于"雪场跟着窗口一起拉伸"，而且保持密度均匀：
+// 缩放规则（**横向与纵向不对称，别读成"整体等比例拉伸"**）：
+//   · x：永远随宽度按 W/prevW 缩放；
+//   · y / meltY：**只在文档变矮时**（h < docH）按 h/docH 压缩；变高时不动（理由见下面括注）。
+// 两条合起来才是"雪场跟着窗口走"，而且横向密度保持均匀：
 //   x：存量粒子本来就该跟着画布宽度按比例挪。
 //   y：改宽度会让页面重排、文档高度跟着变。本站首页实测是**同向**的（变宽 960→1920 时
 //      docH 2043→2620 变高；变窄 1920→960 时 2620→2043 变矮 22%），也就是说**变窄**那一侧
@@ -422,7 +439,10 @@ const resizeField = (prevW) => {
   const kx = W / prevW
   const ky = h < docH ? h / docH : 1
   for (let i = 0; i < particles.length; i++) particles[i].x *= kx
-  scaleY(ky) // 变矮时压缩 y/meltY，与 syncField 共用同一套规则
+  // 变矮时整场压缩 y/meltY。**不是** syncField 那套规则：那边走 shrinkField ——
+  // 只压缩"屏幕底边以下"那一段并同比例抽稀，屏幕内/上方一点不动，也不碰 x；
+  // 这里则是整场按 h/docH 压，而且上一行刚把 x 缩过。两套刻意分开，别合并。
+  scaleY(ky)
   docH = h
   syncCount(-NEAR.radius, docH, false)
 }
@@ -472,6 +492,15 @@ const frame = (now) => {
   const dt = Math.min(Math.max((now - last) / 1000, 0), MAX_DT)
   last = now
 
+  // DPR 单独变了？（跨屏拖动 / 系统缩放改档）——浏览器不保证发 resize，所以每帧自己比一次。
+  // 读 devicePixelRatio 是纯属性读，不触发布局（微基准见 MAINTENANCE 第八版）。
+  // 为什么不用 matchMedia：在 CDP 模拟环境里（2026-11-02 实测）`(resolution: Ndppx)` 查询的
+  // .matches 会正确翻转，但 **change 事件不触发**；真实换屏是否同样哑掉未验证，所以不赌事件。
+  // 位置在帧率门限之后 —— 只有真正要渲染的帧才读：60Hz 屏是 60 次/秒，66~68Hz 的屏按
+  // MIN_FRAME_MS 的口径会原样每帧画，也就是 66 次/秒左右。
+  // 放在 clearRect 之前：onResize 会重建位图（清空画布），这一帧紧接着就会重画满。
+  if ((window.devicePixelRatio || 1) !== rawDpr) onResize()
+
   ctx.clearRect(0, 0, W, H)
 
   const top = PAGE_ANCHORED ? scrollY : 0 // 视野顶端在文档里的位置
@@ -495,9 +524,17 @@ const frame = (now) => {
   //   两种放法都实测过，分别把密度搞成屏内 35% 和 249%、文档底部 0.00×，别再改回去。）
   groundY = PAGE_ANCHORED ? Math.min(docH, scrollY + H) : H
 
-  const gy = groundY - top // 融化线在屏幕上的位置（= H，除非已经滚到文档最底）
-  const wind = mouseNx * MOUSE_WIND * SPEED
-  const taper = 1 - Math.abs(mouseNx)
+  // 融化线在屏幕上的位置：恒等于 H。groundY = min(docH, scrollY + H)，而
+  // scrollY + H ≤ scrollHeight ≤ docH，相减之后永远是 H（只有 docH 还是陈旧值的那一瞬间例外）。
+  // 旧注释写的"滚到文档最底时是例外"不成立 —— 那是最早一版"地面取文档底部"的说法。
+  const gy = groundY - top
+
+  // 鼠标风先做一阶平滑，再算 wind / taper。**两者都要用平滑值**：只平滑其中一个的话，
+  // 风的强度与"边缘衰减节奏"会在鼠标移动时错拍（实测对比页里能看出来）。
+  // 用 dt 推进，所以 30/60/120Hz 手感一致；dt 已被夹在 [0, MAX_DT]。
+  smoothNx += (mouseNx - smoothNx) * (1 - Math.exp(-dt / MOUSE_TAU))
+  const wind = smoothNx * MOUSE_WIND * SPEED
+  const taper = 1 - Math.abs(smoothNx)
 
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i]
@@ -562,6 +599,14 @@ const frame = (now) => {
     if (sy + p.r > H && prevSy + p.r <= H && prevSy + p.r > 0) {
       p.meltY = p.y // 记住融化的位置，融化完回这儿继续落（见 respawnFlake）
       p.melt = 0
+      // ⚠️ 这一帧必须自己画一次。融化分支在循环**开头**，本帧走到这里已经错过它了；
+      //    不补就是"少画一帧"—— 表现为雪花触底时闪一下（一个渲染间隔的空白，
+      //    紧接着 0.6s 静止的融化段，反而把缺口衬得更明显）。2026-11-02 用户报的就是这个。
+      //    位置与下一帧融化分支一致：落地瞬间 sy + r ≈ H = gy，所以正常顶边 sy - r
+      //    与这里的 gy - 2r 相等；下一帧 p.melt 已经是 dt（≤ MAX_DT < MELT_REST），
+      //    仍处在"停留"段，r / alpha 也没变。前提是这一帧内地面与窗口状态不变。
+      ctx.globalAlpha = p.alpha
+      ctx.drawImage(sprite, p.x - p.r, gy - p.r * 2, p.r * 2, p.r * 2)
       continue
     }
 
@@ -603,13 +648,23 @@ const onResize = () => {
   W = window.innerWidth
   H = window.innerHeight
   // DPR 也可能因为窗口被拖到另一块屏而变 → 跟着重建贴图
-  const ndpr = Math.min(window.devicePixelRatio || 1, MAX_DPR)
+  rawDpr = window.devicePixelRatio || 1
+  const ndpr = Math.min(rawDpr, MAX_DPR)
   if (ndpr !== dpr) {
     dpr = ndpr
-    sprite = makeSprite(spriteRgb)
+    // 先建候选、成功再替换：重建失败时旧贴图与 spriteRgb 都不动，
+    // 保证"颜色状态与实际贴图一致"。这是有意的降级，不会自动恢复
+    // （下次主题切换 / DPR 变化会再试一次）。
+    const next = makeSprite(spriteRgb)
+    if (next) sprite = next
   }
-  canvas.width = Math.round(W * dpr)
-  canvas.height = Math.round(H * dpr)
+  // ⚠️ 只在**目标位图尺寸真的变了**时才写 width/height：给 canvas 赋 width（哪怕值相同）
+  //    会清空画布并重置上下文状态。DPR 变化的检测（frame 里那次比较）可能与 resize 落在
+  //    同一帧，多清一次就是一段空白，而下一次 rAF 还可能被 MAX_FPS 门限跳过。
+  const bw = Math.round(W * dpr)
+  const bh = Math.round(H * dpr)
+  if (canvas.width !== bw) canvas.width = bw
+  if (canvas.height !== bh) canvas.height = bh
   // 显式写像素尺寸：让本文件不依赖 .snow-canvas 的 width/height 规则。
   // ⚠️ 但**定位/层叠/穿透仍由 CSS 提供**（custom.scss 第 8 节：position: fixed、inset: 0、
   //    pointer-events: none、z-index: 1）—— 缺了这些，画布会进入文档流并把页面撑高。
@@ -620,6 +675,15 @@ const onResize = () => {
   if (prevW > 0 && W !== prevW) resizeField(prevW)
   else syncField()
 }
+
+// DPR **单独**变化的兜底：把窗口拖到缩放比例不同的另一块屏（或系统缩放改档）时，
+// CSS 视口可能一点没变 —— 浏览器**不保证**发 resize，于是位图一直停在旧 DPR 上发糊。
+//
+// 做法是在 frame() 开头比一次原始 devicePixelRatio（见那里的三行），而不是监听
+// `matchMedia('(resolution: Ndppx)')` 的 change —— 2026-11-02 实测：CDP 改 deviceScaleFactor
+// 之后查询的 .matches 会正确翻转（true → false），但 **change 事件一次都不触发**，
+// 监听形同虚设。每帧读一个原始属性不触发布局，比"赌事件会来"可靠。
+// 注意比较的是**原始**值：dpr 是封顶后的，2 和 3 都是 2，拿它比会漏掉 2→3。
 
 const onVisibility = () => {
   // 切后台直接停 rAF（省电）；回来时重置 last，避免攒出一个大 dt
@@ -640,10 +704,11 @@ const onVisibility = () => {
 // 所以读到的一定是新值。
 const onThemeChange = () => {
   const rgb = readColor()
-  if (rgb !== spriteRgb) {
-    spriteRgb = rgb
-    sprite = makeSprite(rgb)
-  }
+  if (rgb === spriteRgb) return
+  const next = makeSprite(rgb)
+  // 失败则连同 spriteRgb 一起保持原样：颜色状态必须和实际贴图一致，
+  // 否则下一次拿到的是"新颜色 + 旧灰贴图"的错配。
+  if (next) { sprite = next; spriteRgb = rgb }
 }
 
 const themeObserver = new MutationObserver(onThemeChange)
@@ -734,14 +799,23 @@ export const initSnow = () => {
   // 浏览器恢复滚动位置时，一上来就该是对的位置，否则整场雪会先滑一下
   onScroll()
   prevScrollY = scrollY // 免得第一帧算出一个巨大的 dScroll 把全场雪都判成"滚过去的"
-  // mouseNx 是唯一不会在下面被重设的状态：减少动效切回来会重开场，不归零的话上次鼠标停在
-  // 右边缘就会让新开场的雪直接满风力吹（实测修好"切回来起不来"之后量到 meanVx = +17.95 px/s，
-  // 正好是 nx(0.997) × MOUSE_WIND(0.3) × SPEED(60)），直到下一次 mousemove 才纠正。
+  // mouseNx / smoothNx 是仅有的两个不会被下面任何一步重设的状态，必须在这里手工归零：
+  // 减少动效切回来会重开场，不归零的话上次鼠标停在右边缘就会让新开场的雪直接满风力吹
+  // （实测修好"切回来起不来"之后量到 meanVx = +17.95 px/s，正好是
+  // nx(0.997) × MOUSE_WIND(0.3) × SPEED(60)），直到下一次 mousemove 才纠正。
+  // 平滑值是后加的第二个状态：漏掉它等于把同一个坑重演一遍（开场先被旧的平滑风吹一会儿）。
   mouseNx = 0
+  smoothNx = 0
   docH = PAGE_ANCHORED ? Math.max(H, document.documentElement.scrollHeight) : H
   groundY = PAGE_ANCHORED ? Math.min(docH, scrollY + H) : H // 一上来地面就贴着屏幕底边
-  spriteRgb = readColor()
-  sprite = makeSprite(spriteRgb)
+  // 首次铺场拿不到精灵贴图就整场放弃。**不能照抄上面主画布的收尾**：那里本来就没有有效的
+  // ctx，只清 canvas 是对的；这里主 ctx 是活着的，只清 canvas 会留下一个"活着但没雪"的
+  // 上下文。teardown() 是幂等的，会把画布、监听、观察者一起收干净。
+  const rgb = readColor()
+  const firstSprite = makeSprite(rgb)
+  if (!firstSprite) { teardown(); return }
+  spriteRgb = rgb
+  sprite = firstSprite
   // 首次铺场：把整篇文档均匀铺满，屏幕里也是满的（avoidVisible = false）。
   // 此刻 document.scrollHeight 往往还很小（懒加载的图片没载入），没关系 ——
   // 页面随后长高时 syncField 会把新长出来的那一段按同样密度补上。
