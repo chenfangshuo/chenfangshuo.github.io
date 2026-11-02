@@ -164,6 +164,16 @@ $home-media-radius: 1rem;
   scale: 1;
 }
 
+// 首页卡片灰色简介：统一最多 3 行，避免个别较长的 description 把卡片撑长。
+// 文字内容仍来自 front matter 的 description（见 layouts/summary.html）；
+// 这里只做视觉截断，完整内容点进文章看。
+.summary .content {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
 // 悬停卡片任意位置（图片 / 标题 / 摘要 / 阅读全文）→ 图片在画框内放大
 .summary:hover .featured-image-preview img {
   transform: scale(1.02); // 1.05 略夸张，收敛到 1.02
