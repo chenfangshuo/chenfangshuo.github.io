@@ -108,7 +108,7 @@ $home-media-radius: 1rem;
 // -----------------------------------------------------------------------------
 // 页脚有两颗心：
 //   .site-time i    —— 「本站已运行」前面的那颗
-//   .powered-heart  —— 「Hugo ♥ FixIt」中间那颗（由 i18n/zh-CN.toml 注入）
+//   .powered-heart  —— 「Hugo ♥ FixIt」中间那颗（由站点 layouts/_partials/powered.html 注入）
 .site-time i,
 .powered-heart {
   transition: color .4s ease, font-size .4s ease;
@@ -595,7 +595,7 @@ html.share-wechat-open {
 // 10. 图片加载占位（assets/js/custom.js + plugin/image.html）
 //
 //     - 正文图（render-image.html 传 Skeleton=true）、文章封面和首页卡片
-//       （Matches 含 featured-image）都包 .image-skeleton；头像 / logo 不包。
+//       （文件名 featured-image*）都包 .image-skeleton；头像 / logo 不包。
 //     - 首页 Hero 是 CSS 背景图，不走这里，见第 5 节的 ::after + initHeroSkeleton。
 //     - 骨架是**盖在图片上方**的一层（z-index: 2），不是垫在下面：
 //       慢网下浏览器会从上到下渐进绘制图片，如果骨架在下面，未加载完的图片会

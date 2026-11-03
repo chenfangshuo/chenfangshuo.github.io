@@ -4,10 +4,10 @@
   与主题版本有两处差异：
   1. $alt 计算：posts/single.html 给 hero 封面传的是 "Title"（值为页面 Description），
      主题原逻辑 `$alt := .Alt | default $src` 会把图片 URL 当成 alt。这里让
-     featured image 优先用 featured_image_alt / 页面标题；其它图片仍按
+     文件名 featured-image* 的封面优先用 featured_image_alt / 页面标题；其它图片仍按
      Alt → Title → src 回退。
-  2. 骨架：正文图（Skeleton=true）、文章封面和首页卡片（Matches 含 featured-image）
-     外包一层 .image-skeleton；头像 / logo 不包。
+  2. 骨架：正文图（Skeleton=true）、文章封面和首页卡片（文件名 featured-image*）
+     外包一层 .image-skeleton；头像 / logo 不包。alt 与骨架共用同一个文件名判定。
 
   ⚠️ 升级主题时先 diff 本文件与主题同名文件，只重新应用这两处差异。
 */ -}}
@@ -119,9 +119,13 @@
 {{- end -}}
 
 {{- $src := $resource.RelPermalink | default .Src -}}
+{{- /* 封面判断按文件名 featured-image*：get-cover 的 Matches 只记了 preview（GetMatch 不带扩展名）。
+       alt 与骨架共用同一个判定，避免“骨架认出来了、alt 没认出来”。 */ -}}
+{{- $srcBase := path.Base (urls.Parse .Src).Path -}}
+{{- $isFeatured := hasPrefix $srcBase "featured-image" -}}
 {{- $alt := .Alt -}}
 {{- if not $alt -}}
-  {{- if in (.Matches | default slice) "featured-image" -}}
+  {{- if $isFeatured -}}
     {{- $alt = page.Params.featured_image_alt | default page.Title -}}
   {{- else -}}
     {{- $alt = .Title | default $src -}}
@@ -134,10 +138,7 @@
   {{- $height = $height | default $resource.Height | default "" -}}
   {{- $width = $width | default $resource.Width | default "" -}}
 {{- end -}}
-{{- /* 正文图、文章封面、首页卡片都包骨架；头像 / logo 等不包。
-       封面判断按文件名 featured-image*：get-cover 的 Matches 只记了 preview（GetMatch 不带扩展名）。 */ -}}
-{{- $srcBase := path.Base (urls.Parse .Src).Path -}}
-{{- $isFeatured := hasPrefix $srcBase "featured-image" -}}
+{{- /* 正文图、文章封面、首页卡片都包骨架；头像 / logo 等不包。 */ -}}
 {{- $skeleton := and (or .Skeleton $isFeatured) $width $height -}}
 
 {{- if .Linked -}}

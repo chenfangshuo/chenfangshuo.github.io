@@ -40,8 +40,11 @@
     这份脚本替你设好这个变量。
 
     另外保留一层保险：万一还是遇到那种「构建已完成但进程不退」的情况，脚本会盯着
-    stdout 的完成标记（`Total in … ms`），出现后即回收整棵进程树并以 0 退出 ——
-    此时产物一定是完整的。
+    stdout 的完整耗时行（`Total in … ms`），先最多 2 秒补读日志，再等最多
+    `HUGO_BUILD_EXIT_GRACE_SEC` 秒（默认 5）让进程正常退出；仍不退才回收整棵进程树。
+    回收后（或进程正常退出后）会做本次产物守卫：目标目录里 index.html 非空且本次写入、
+    至少两个 HTML 本次更新、日志里没有 ERROR。
+    注意：`Total` 只是耗时行，守卫通过也不等于“完整性证明”；成功判定见验证总纲。
 
 .NOTES
     参数全部原样透传给 hugo，不传则默认 `--gc --minify`（与 CI 一致）。
@@ -64,14 +67,53 @@ $ErrorActionPreference = 'Stop'
 
 $HugoArgs  = $args
 $TimeoutSec = if ($env:HUGO_BUILD_TIMEOUT) { [int]$env:HUGO_BUILD_TIMEOUT } else { 300 }
+# Total 出现后给进程的正常收尾宽限（秒，默认 5）；慢机器可调大
+$ExitGraceMs = if ($env:HUGO_BUILD_EXIT_GRACE_SEC) {
+    [int]([double]$env:HUGO_BUILD_EXIT_GRACE_SEC * 1000)
+} else { 5000 }
 
 # 关键的一行：降并发，避开 Windows 上的并行渲染竞争
 $env:HUGO_NUMWORKERMULTIPLIER = '1'
 
 if (-not $HugoArgs -or $HugoArgs.Count -eq 0) { $HugoArgs = @('--gc', '--minify') }
 
+# 解析真正的子命令，跳过带值选项及其值（--destination new 里的 new 不是命令）
+function Get-HugoCommand {
+    param([string[]]$HugoArgsIn)
+    # 依据 Hugo 0.169.0 的全局 flags 校准；布尔开关不要放进来
+    $valueOpts = @(
+        '-b', '--baseURL', '-c', '--contentDir', '-d', '--destination',
+        '-e', '--environment', '-l', '--layoutDir', '-s', '--source',
+        '-t', '--theme', '--cacheDir', '--clock', '--config', '--configDir',
+        '--disableKinds', '--ignoreVendorPaths', '--logLevel', '--poll',
+        '--renderSegments', '--themesDir', '--trace'
+    )
+    for ($i = 0; $i -lt $HugoArgsIn.Count; $i++) {
+        $a = $HugoArgsIn[$i]
+        if ($a -ceq '--') { break }
+        if ($a -clike '--*=*' -or $a -clike '-?=*') { continue }
+        if ($valueOpts -ccontains $a) { $i++; continue }
+        if ($a -clike '-*') { continue }
+        return $a
+    }
+    return ''
+}
+
+function Test-IsBuildCall {
+    param([string[]]$HugoArgsIn)
+    # --help / -h 出现在命令后（如 `build --help`）也不要产物守卫
+    foreach ($a in $HugoArgsIn) {
+        if ($a -ceq '--help' -or $a -ceq '-h') { return $false }
+    }
+    $cmd = Get-HugoCommand -HugoArgsIn $HugoArgsIn
+    if ($cmd -ceq '') { return $true }
+    $nonBuild = @('version', 'env', 'config', 'list', 'new', 'mod',
+                  'completion', 'gen', 'convert', 'import', 'help')
+    return -not ($nonBuild -ccontains $cmd)
+}
+
 # server 模式：它就该一直跑着，没有「退不出」的问题，直接转交
-if ($HugoArgs -contains 'server') {
+if ((Get-HugoCommand -HugoArgsIn $HugoArgs) -ceq 'server') {
     & hugo @HugoArgs
     exit $LASTEXITCODE
 }
@@ -98,6 +140,96 @@ function Stop-Tree {
     & taskkill /PID $Id /T /F 2>&1 | Out-Null
 }
 
+function Get-HugoDestination {
+    param([string[]]$HugoArgsIn)
+    $dest = 'public'
+    for ($i = 0; $i -lt $HugoArgsIn.Count; $i++) {
+        $a = $HugoArgsIn[$i]
+        # -ceq / -clike 区分大小写：-D（--buildDrafts）不是 -d（--destination）
+        if ($a -ceq '-d' -or $a -ceq '--destination') {
+            if ($i + 1 -lt $HugoArgsIn.Count) { $dest = $HugoArgsIn[$i + 1] }
+        }
+        elseif ($a -clike '--destination=*') { $dest = $a.Substring('--destination='.Length) }
+        elseif ($a -clike '-d=*') { $dest = $a.Substring(3) }
+    }
+    return $dest
+}
+
+function Resolve-PathFromCwd {
+    param([string]$Path)
+    if ([IO.Path]::IsPathRooted($Path)) { return [IO.Path]::GetFullPath($Path) }
+    return [IO.Path]::GetFullPath((Join-Path (Get-Location) $Path))
+}
+
+function Test-BuildOutput {
+    param(
+        [string]$DestDir,
+        [string]$IndexPath,
+        [datetime]$BuildStart,
+        $BeforeMtime,
+        $BeforeHash,
+        [hashtable]$BeforeHtml
+    )
+    if (-not (Test-Path -LiteralPath $IndexPath)) { return "缺少 index.html（$IndexPath）" }
+    $idx = Get-Item -LiteralPath $IndexPath
+    if ($idx.Length -le 0) { return "index.html 是空文件（$IndexPath）" }
+
+    $afterHash = (Get-FileHash -LiteralPath $IndexPath -Algorithm SHA256).Hash
+    $mtimeChanged = ($null -eq $BeforeMtime) -or ($idx.LastWriteTimeUtc -ne $BeforeMtime)
+    $hashChanged = ($null -eq $BeforeHash) -or ($afterHash -ne $BeforeHash)
+    $fresh = $idx.LastWriteTimeUtc -ge $BuildStart.ToUniversalTime()
+    if (-not ($mtimeChanged -and ($hashChanged -or $fresh))) {
+        return "index.html 不是本次写入（mtime 未变，内容也未变）"
+    }
+
+    $startUtc = $BuildStart.ToUniversalTime()
+    $newHtml = @(Get-ChildItem -LiteralPath $DestDir -Recurse -Filter *.html -ErrorAction SilentlyContinue |
+        Where-Object {
+            $prev = $BeforeHtml[$_.FullName]
+            ($_.LastWriteTimeUtc -ge $startUtc) -and (($null -eq $prev) -or ($_.LastWriteTimeUtc -ne $prev))
+        })
+    if ($newHtml.Count -le 1) { return "本次只更新了 $($newHtml.Count) 个 HTML，产物不完整" }
+    return $null
+}
+
+function Find-BuildError {
+    param([string]$OutFile, [string]$ErrFile)
+    foreach ($f in @($OutFile, $ErrFile)) {
+        if (-not (Test-Path -LiteralPath $f)) { continue }
+        try {
+            if (Select-String -LiteralPath $f -Pattern '^\s*ERROR\b' -Quiet -ErrorAction Stop) {
+                return "日志里有 ERROR：$f"
+            }
+        } catch { }
+    }
+    return $null
+}
+
+$isBuild = Test-IsBuildCall -HugoArgsIn $HugoArgs
+
+$DestDir = $null
+$IndexPath = $null
+$BeforeMtime = $null
+$BeforeHash = $null
+$BeforeHtml = @{}
+
+if ($isBuild) {
+    $DestArg = Get-HugoDestination -HugoArgsIn $HugoArgs
+    $DestDir = Resolve-PathFromCwd $DestArg
+    $IndexPath = Join-Path $DestDir 'index.html'
+
+    if (Test-Path -LiteralPath $IndexPath) {
+        $before = Get-Item -LiteralPath $IndexPath
+        $BeforeMtime = $before.LastWriteTimeUtc
+        $BeforeHash = (Get-FileHash -LiteralPath $IndexPath -Algorithm SHA256).Hash
+    }
+    if (Test-Path -LiteralPath $DestDir) {
+        Get-ChildItem -LiteralPath $DestDir -Recurse -Filter *.html -ErrorAction SilentlyContinue |
+            ForEach-Object { $BeforeHtml[$_.FullName] = $_.LastWriteTimeUtc }
+    }
+}
+
+$BuildStart = Get-Date
 $proc = Start-Process -FilePath 'hugo' -ArgumentList $HugoArgs -NoNewWindow -PassThru `
         -RedirectStandardOutput $outFile -RedirectStandardError $errFile
 
@@ -112,10 +244,11 @@ try {
         Write-NewLines -Path $outFile -Printed ([ref]$outN)
         Write-NewLines -Path $errFile -Printed ([ref]$errN) -Color 'Red'
 
-        # 「Total in … ms」是 Hugo 统计表的最后一行，出现即代表构建真正完成
+        # 「Total in … ms」只是耗时行，不能单独证明构建成功；
+        # 这里只把它当作“可以开始回收不退出的进程”的信号。
         if (Test-Path $outFile) {
             try {
-                if (Select-String -LiteralPath $outFile -Pattern 'Total in \d+ ms' -Quiet -ErrorAction Stop) {
+                if (Select-String -LiteralPath $outFile -Pattern '^\s*Total in \d+ ms' -Quiet -ErrorAction Stop) {
                     $completed = $true
                     break
                 }
@@ -132,20 +265,66 @@ try {
         }
     }
 
-    Start-Sleep -Milliseconds 150
+    # 收尾最多读 2 秒，避免为了等重定向输出无限挂住
+    $drainUntil = (Get-Date).AddSeconds(2)
+    while ((Get-Date) -lt $drainUntil) {
+        Write-NewLines -Path $outFile -Printed ([ref]$outN)
+        Write-NewLines -Path $errFile -Printed ([ref]$errN) -Color 'Red'
+        if ($proc.HasExited) { break }
+        Start-Sleep -Milliseconds 120
+    }
     Write-NewLines -Path $outFile -Printed ([ref]$outN)
     Write-NewLines -Path $errFile -Printed ([ref]$errN) -Color 'Red'
 
-    if ($completed -and -not $proc.HasExited) {
+    # 给正常收尾一个有限宽限；仍不退出才回收
+    $exited = $proc.HasExited
+    if (-not $exited) {
+        $null = $proc.WaitForExit($ExitGraceMs)
+        $exited = $proc.HasExited
+    }
+    $exitCode = if ($exited) { $proc.ExitCode } else { $null }
+    $reaped = $false
+    if (-not $exited) {
         Stop-Tree $proc.Id
-        Write-Host ""
-        Write-Host "构建已完成，但 hugo 进程没退出（Dart Sass 握手失败留下的子进程），已回收。" -ForegroundColor Yellow
-        Write-Host "产物是完整的，可以直接用。" -ForegroundColor DarkGray
-        exit 0
+        $reaped = $true
     }
 
-    if ($completed) { exit 0 }
-    exit $proc.ExitCode
+    # 等待/回收期间可能还有几行日志，再读最多 500ms
+    for ($i = 0; $i -lt 5; $i++) {
+        Write-NewLines -Path $outFile -Printed ([ref]$outN)
+        Write-NewLines -Path $errFile -Printed ([ref]$errN) -Color 'Red'
+        if ($exited) { break }
+        Start-Sleep -Milliseconds 100
+    }
+
+    $reason = $null
+    if ($isBuild) {
+        $reason = Test-BuildOutput -DestDir $DestDir -IndexPath $IndexPath `
+            -BuildStart $BuildStart -BeforeMtime $BeforeMtime `
+            -BeforeHash $BeforeHash -BeforeHtml $BeforeHtml
+        if (-not $reason) { $reason = Find-BuildError -OutFile $outFile -ErrFile $errFile }
+    }
+
+    if ($exited -and $exitCode -ne 0) {
+        Write-Host ""
+        Write-Host "hugo 退出码 $exitCode" -ForegroundColor Red
+        exit $exitCode
+    }
+
+    if ($reason) {
+        Write-Host ""
+        Write-Host "构建未通过校验：$reason" -ForegroundColor Red
+        Write-Host "如果目标目录里是旧产物，先删掉目标目录再试。" -ForegroundColor DarkGray
+        exit 1
+    }
+
+    if ($reaped) {
+        Write-Host ""
+        Write-Host "构建已完成，但 hugo 进程没退出（Dart Sass 握手失败留下的子进程），已回收。" -ForegroundColor Yellow
+        Write-Host "本次产物校验通过。" -ForegroundColor DarkGray
+    }
+
+    exit 0
 }
 finally {
     Remove-Item $outFile, $errFile -Force -ErrorAction SilentlyContinue

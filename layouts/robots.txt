@@ -1,6 +1,7 @@
 {{- /*
-  robots.txt —— 站点侧覆盖，内容与 themes/FixIt/layouts/robots.txt（v1.0.0-beta.3）
-  逐行一致，只改了末尾的空白处理。
+  robots.txt —— 站点侧覆盖。相对 themes/FixIt/layouts/robots.txt（v1.0.0-beta.3）
+  改了两处：1) 修末尾 `Sitemap:` 的换行；2) 2026-10-31 删掉 /js/、/css/ 的 Disallow，
+  让 Googlebot / Bingbot 能抓渲染资源。不要把这两处当成“只有空白差异”。
 
   为什么覆盖：主题模板结尾是
       {{- end -}}          ← 范围块结束，右侧 trim

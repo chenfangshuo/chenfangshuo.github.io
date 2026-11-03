@@ -40,6 +40,9 @@ ROOT = Path(__file__).resolve().parent.parent
 CONTENT = ROOT / "content" / "posts"
 SITE = "https://forsure.live"
 HOST = "forsure.live"
+# 2026-11-03 本机实测：https://data.zz.baidu.com/urls 的证书主机名不匹配
+# （schannel WRONG_PRINCIPAL），因此暂保留 HTTP；未断言所有网络/CI 环境都不可用 HTTPS。
+# token 会以 query 明文经过网络；这是已知取舍，见 MAINTENANCE.local.md「百度 / IndexNow 推送」。
 BAIDU_ENDPOINT = "http://data.zz.baidu.com/urls"
 INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow"
 ZERO_SHA = "0" * 40
@@ -103,19 +106,29 @@ def changed_urls(before: str, after: str) -> list[str]:
         return []
     try:
         result = subprocess.run(
-            ["git", "diff", "--name-only", "--diff-filter=ACMR", before, after, "--", "content/posts"],
+            ["git", "diff", "--name-only", "-z", "--diff-filter=ACMR",
+             before, after, "--", "content/posts"],
             cwd=ROOT,
             capture_output=True,
-            text=True,
             check=True,
         )
     except subprocess.CalledProcessError as exc:
-        warn(f"git diff 失败（before={before} after={after}）：{exc.stderr.strip()}")
+        err = exc.stderr.decode("utf-8", errors="replace").strip()
+        warn(f"git diff 失败（before={before} after={after}）：{err}")
+        return []
+
+    try:
+        diff_text = result.stdout.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        # 不能静默当成“没有变更”，否则中文路径的推送会被悄悄跳过
+        warn(f"git diff 输出不是 UTF-8：{exc}")
         return []
 
     urls = []
-    for line in result.stdout.splitlines():
-        path = (ROOT / line.strip()).resolve()
+    for line in diff_text.split("\0"):
+        if not line:
+            continue
+        path = (ROOT / line).resolve()
         try:
             rel = path.relative_to(CONTENT)
         except ValueError:

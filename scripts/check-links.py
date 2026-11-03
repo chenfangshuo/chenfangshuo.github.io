@@ -41,7 +41,8 @@ Hugo **不删** public/ 里的旧文件：现在 `public/css/` 就躺着 5 个�
 custom.min.*.css，只有最新的那个被引用。这对本脚本无害（本脚本只解析 HTML 里
 出现的引用，不枚举文件），但它意味着**本地的 public/ 若没重建，可能让一条死链
 「通过」**（旧的 <old-slug>/index.html 还在）。CI 是全新检出 + 全新构建，
-没有这个问题。所以：本地跑之前先 `.\scripts\hugo-build.ps1`。
+没有这个问题。所以：本地跑之前先 `.\scripts\hugo-build.ps1`；需要验证删除/改名时，
+用全新输出目录（`--destination`）并配合 `--public`，不要依赖累积的旧产物。
 """
 
 import re
@@ -160,8 +161,11 @@ def classify(raw: str, page_rel: str):
     if path == "":
         return ("fragment" if frag else "skip"), page_rel if frag else None, frag
     if path.startswith("/"):
-        return "internal", path.lstrip("/"), frag
-    # 相对：相对当前页所在目录
+        # 先归一化、最后只 unquote 一次：避免 a%2520b.png 被解码两次
+        return "internal", unquote(path.lstrip("/")), frag
+    # 相对：只解码 URL 的 path，再与**未解码**的磁盘基目录合并；
+    # 否则产物目录名里字面的 %20 会被误解成空格。
+    path = unquote(path)
     base = Path(page_rel).parent
     parts = []
     for seg in (base / path).as_posix().split("/"):
@@ -212,7 +216,8 @@ def scan(public: Path, check_anchors: bool, with_css: bool):
                 if not v or v.startswith(("data:", "#")):
                     continue
                 counts["CSS url()"] += 1
-                tgt = v.split("?")[0].split("#")[0]
+                # 只解码 URL 的 path，再与未解码的 CSS 磁盘目录合并
+                tgt = unquote(v.split("?")[0].split("#")[0])
                 if tgt.startswith("/"):
                     tgt = tgt.lstrip("/")
                 else:
@@ -250,8 +255,14 @@ def main() -> int:
     if not public.is_dir():
         print(f"FAIL  {public} 不存在。先构建：.\\scripts\\hugo-build.ps1")
         return 2
+    if not (public / "index.html").is_file():
+        print(f"FAIL  {public} 里没有 index.html，产物不完整。")
+        return 2
 
     broken, counts = scan(public, check_anchors, with_css)
+    if counts.get("站内", 0) == 0:
+        print(f"FAIL  {public} 里没有扫到任何站内引用，产物异常。")
+        return 1
     pages = len(list(public.rglob("*.html")))
 
     if quiet_ok and not broken:

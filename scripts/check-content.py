@@ -46,11 +46,30 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 # archetypes/posts.md 里 `{{ substr .File.UniqueID 0 7 }}` 生成的东西
 HASH_SLUG = re.compile(r"^[0-9a-f]{7}$")
 # 有意义的小写英文短横线
 GOOD_SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+# 人工维护：只有明确确认过“历史上真的以这个哈希 URL 上线”的条目才登记在这里。
+# 键是 (源文件路径, slug)，避免以后别的文章复用同一个 slug 时被一起豁免。
+# 当前 6 篇文章都没有哈希 slug，所以保持为空。
+LIVE_HASH_SLUGS = {
+    # ("content/posts/foo/index.md", "ec86391"),
+}
+
+# 本站已启用的、没有内容源文件的 HTML 输出（home 的附加 output 与 Hugo 404）。
+# 普通页面用 url: 覆盖到这些路径时，hugo list 里看不到冲突对象，需要单独登记。
+RESERVED_HTML_TARGETS = {
+    "/": "首页",
+    "/archives/": "首页 archives 输出",
+    "/offline/": "首页 offline 输出",
+    "/link/": "首页 link 输出",
+    "/posts/": "posts section 列表页",
+    "/404.html": "Hugo 404",
+}
 
 IMG_MD = re.compile(r"!\[[^\]]*\]\(\s*([^)\s]+)")
 LINK_MD = re.compile(r"(?<!!)\[[^\]]*\]\(\s*([^)\s]+)")
@@ -168,23 +187,96 @@ def main() -> int:
     counts = {}
 
     # --- 规则 ------------------------------------------------ 每条的检查数记进 counts
+    # URL 碰撞：用 Hugo 解析后的 HTML permalink 分组，覆盖 posts、about/links 等普通页。
+    # 不自己拼 slug；/x/ 与 /x/index.html 视为同一输出；home 的 search.json 不是 HTML，排除。
+    def html_target(permalink: str) -> str:
+        p = urlparse(permalink).path
+        if p.endswith("/index.html"):
+            p = p[: -len("index.html")]
+        if p.endswith("/") or p.endswith(".html"):
+            return p
+        return ""
+
+    n = 0
+    targets = {}
+    for r in allrows:
+        if r.get("kind") not in ("page", "taxonomy", "term", "section"):
+            continue
+        if r["path"] not in published:
+            continue  # 草稿/未来页面不参与本次发布，不应被算碰撞
+        key = html_target(r.get("permalink", ""))
+        if not key:
+            continue
+        targets.setdefault(key, []).append(r["path"])
+
+    def is_tag_term_owner(path: str) -> bool:
+        parts = Path(path).parts
+        return (
+            len(parts) == 4
+            and parts[0] == "content"
+            and parts[1] == "tags"
+            and parts[3] == "_index.md"
+        )
+
+    for key, paths in sorted(targets.items()):
+        unique = sorted(set(paths))
+        # 多个不同源文件输出到同一路径，永远是碰撞；归属豁免不能跳过这条。
+        if len(unique) > 1:
+            n += 1
+            flag("ERROR", "permalink-collision", " + ".join(unique),
+                 f"多个页面输出到同一路径 {key}")
+            continue
+        owner = unique[0]
+        if key.startswith("/tags/"):
+            # 合法 taxonomy 索引（content/tags/_index.md）和 term 自身
+            # （content/tags/<slug>/_index.md）允许；其他页占用 /tags/ 命名空间
+            # 一律报错，不再靠手写 YAML 解析猜标签。
+            if key == "/tags/" and owner == "content/tags/_index.md":
+                continue
+            if is_tag_term_owner(owner):
+                continue
+            n += 1
+            flag("ERROR", "permalink-collision", owner,
+                 f"页面输出到 /tags/ 命名空间（{key}），可能与自动标签 term 冲突")
+        elif key == "/posts/" and owner == "content/posts/_index.md":
+            continue  # posts section 自己的元数据页
+        elif key in RESERVED_HTML_TARGETS:
+            n += 1
+            flag("ERROR", "permalink-collision", owner,
+                 f"页面输出路径 {key} 与{RESERVED_HTML_TARGETS[key]}冲突")
+    counts["permalink-collision"] = n
+
     n = 0
     for r in posts:
         slug, path = r.get("slug", ""), r["path"]
         if not HASH_SLUG.match(slug):
             continue
         n += 1
-        if path not in published:
-            # 还没发布 → 改 slug 是免费的，必须改
-            flag("ERROR", "slug-hash-draft", path,
-                 f'slug 还是随机哈希 "{slug}"；URL 会变成 /{slug}/，'
-                 f'且以后改名会让 Twikoo 评论失联，现在改最省事')
-        else:
-            # 已发布 → 改名会孤儿化历史评论，所以只提醒、绝不挡
+        if (path, slug) in LIVE_HASH_SLUGS:
+            # 只有人工确认过的历史 URL 才降级；改名会孤儿化历史评论
             flag("WARN", "slug-hash-live", path,
-                 f'slug 是随机哈希 "{slug}"（已发布，改名会让现有评论失联，'
+                 f'slug 是随机哈希 "{slug}"（已登记为历史 URL，改名会让现有评论失联，'
                  f'故只警告不拦）')
+        else:
+            # 新文章不管 draft 是什么都必须改：hugo list published 只知道“本次会发布”，
+            # 不知道这个 URL 历史上有没有上线。
+            flag("ERROR", "slug-hash-blocked", path,
+                 f'slug 还是模板生成的随机哈希 "{slug}"；URL 会变成 /{slug}/，'
+                 f'且以后改名会让 Twikoo 评论失联。首次发文必须改；'
+                 f'如确属历史已上线 URL，人工登记到 LIVE_HASH_SLUGS')
     counts["slug-hash"] = n
+
+    n = 0
+    for r in posts:
+        slug = r.get("slug", "")
+        if not slug or HASH_SLUG.match(slug):
+            continue
+        n += 1
+        if not GOOD_SLUG.match(slug):
+            flag("WARN", "slug-format", r["path"],
+                 f'slug "{slug}" 不是小写英文短横线；URL 会带大写/下划线等字符，'
+                 f'不影响访问但不便于分享与排错')
+    counts["slug-format"] = n
 
     n = 0
     for r in posts:
@@ -229,7 +321,8 @@ def main() -> int:
         bundle = src.parent
         for line, tgt in body_refs(body):
             n += 1
-            rel = tgt.split("#")[0].split("?")[0]
+            # 先切 query/fragment，再对 URL 的 path 只解码一次
+            rel = unquote(tgt.split("#")[0].split("?")[0])
             if rel and not (bundle / rel).exists():
                 flag("ERROR", "body-ref-missing", r["path"],
                      f"{off + line - 1} 行的引用 {tgt} 在文章目录里找不到")
@@ -270,13 +363,15 @@ def main() -> int:
             print(f"      {path}")
             print(f"        {msg}")
 
-    report(2, ("slug-hash-draft", "slug-hash-live"), "slug 是随机哈希", "slug-hash", "篇")
+    report(2, ("slug-hash-blocked", "slug-hash-live"), "slug 是随机哈希", "slug-hash", "篇")
+    report("2b", ("slug-format",), "slug 格式", "slug-format", "篇")
     report(3, ("draft-true",), "draft-true / 未发布", "draft-true", "篇")
     report(4, ("featured-image-missing", "featured-preview-missing"),
            "featured-image 存在", "featured-image", "个声明")
     report(5, ("body-ref-missing",), "正文相对引用存在", "body-ref", "处引用（仅未发布）")
     report(6, ("more-marker-missing",), "有 <!--more-->", "more-marker", "篇")
     report(7, ("permalink-drift",), "permalink 与 slug 一致", "permalink", "篇")
+    report("7b", ("permalink-collision",), "输出路径唯一", "permalink-collision", "项")
 
     print()
     if errors:

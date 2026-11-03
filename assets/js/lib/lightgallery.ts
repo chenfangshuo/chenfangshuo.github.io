@@ -23,6 +23,18 @@ let wheelBound = false
 let wheelAccum = 0
 let wheelResetTimer: ReturnType<typeof setTimeout> | undefined
 
+function wheelPixels(event: WheelEvent): number {
+  // deltaMode: 0 = 像素，1 = 行，2 = 页。统一换算成像素再累计。
+  if (event.deltaMode === 1) {
+    const lh = parseFloat(getComputedStyle(document.documentElement).lineHeight)
+    return event.deltaY * (Number.isFinite(lh) && lh > 0 ? lh : 16)
+  }
+  if (event.deltaMode === 2) {
+    return event.deltaY * (window.innerHeight || 800)
+  }
+  return event.deltaY
+}
+
 function onWheel(event: WheelEvent) {
   // 灯箱没开：完全不干预，页面照常滚动
   if (!document.documentElement.classList.contains('lg-on') || !event.deltaY)
@@ -37,7 +49,7 @@ function onWheel(event: WheelEvent) {
   event.stopPropagation()
 
   // 触控板一次滑动会发很多小 delta：累计到阈值再缩放，避免一下放大好几倍
-  wheelAccum += event.deltaY
+  wheelAccum += wheelPixels(event)
   clearTimeout(wheelResetTimer)
   wheelResetTimer = setTimeout(() => { wheelAccum = 0 }, 250)
   if (Math.abs(wheelAccum) < WHEEL_STEP_THRESHOLD)

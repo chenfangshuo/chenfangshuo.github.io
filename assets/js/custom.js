@@ -73,6 +73,8 @@ const initHitokoto = async () => {
  *    ⚠️ 不要改回“隐藏 img、再淡入 img”的写法：慢网下浏览器会先画出图片的
  *       部分内容，JS 还没把 img 压到 0 就会从骨架上面露出来（2026-10-31 实测）。
  *    ⚠️ 缓存命中（img.complete）直接标记 is-loaded，避免刷新时骨架多留一帧。
+ *       complete 也包括“已经失败”（naturalWidth === 0）：失败图不会再触发 error，
+ *       所以这里表示“无需继续等待”，让浏览器显示失败状态，而不是永久盖着骨架。
  */
 const initImageSkeletons = () => {
   document.querySelectorAll('.image-skeleton').forEach((box) => {
@@ -81,7 +83,9 @@ const initImageSkeletons = () => {
 
     const done = () => box.classList.add('is-loaded')
 
-    if (img.complete && img.naturalWidth > 0) {
+    // complete 表示“已经不用等”（成功或失败都算）；失败图不会再触发 error，
+    // 所以不能只认 naturalWidth > 0，否则骨架会永久保留。
+    if (img.complete) {
       done()
       return
     }
