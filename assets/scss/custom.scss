@@ -157,6 +157,23 @@ $home-media-radius: 1rem;
     //    悬停放大也不需要 will-change：transform 过渡 Chrome 会在动画期间自动提升图层；
     //    filter 过渡是绘制级动画，本来就得逐帧重栅格。实测见 MAINTENANCE「性能：首页卡片封面」。
   }
+
+  // 骨架包裹层：卡片预览有固定高度（约 270px），让 <a> / 骨架 / img 都填满它。
+  // 否则 <a> 里的 block 级 <span> 会让 <a> 变成 0×0，img 的 height:100% 解析成 0，
+  // 缩略图就“消失”了（2026-11-03 实测）。
+  > a {
+    display: block;
+    height: 100%;
+  }
+
+  .image-skeleton {
+    height: 100%;
+  }
+
+  .image-skeleton > img {
+    height: 100%;
+    object-fit: cover;
+  }
 }
 
 // 抵消主题那条"只有悬停图片本身才缩放整块"的规则（同优先级 + 靠后加载即可覆盖）
