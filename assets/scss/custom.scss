@@ -277,6 +277,27 @@ $home-media-radius: 1rem;
     will-change: transform;
   }
 
+  // 背景图加载前的骨架：与正文图共用 image-skeleton-breathe。
+  // ::before 是图片 + 暗角（z-index:-1），::after 也是 -1 但排在后面，
+  // 所以盖在图片上、内容（头像/文字）下方；加载完成后 JS 加 .is-hero-loaded 淡出。
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-color: #1b2230;
+    background-image: linear-gradient(100deg, transparent 25%, rgba(255, 255, 255, .06) 50%, transparent 75%);
+    background-size: 220% 100%;
+    animation: image-skeleton-breathe 3.8s ease-in-out infinite;
+    transition: opacity .5s ease;
+  }
+
+  &.is-hero-loaded::after {
+    animation: none;
+    opacity: 0;
+  }
+
   // 头像：手机 96px（主题默认 6rem），≥680px 换 128px —— 见下面媒体查询。
   // 128px 在 200% 缩放的屏上是像素级刚好：avatar.webp 是 256×256，128 CSS px
   // = 256 设备像素，1:1 无插值。
@@ -554,10 +575,11 @@ html.share-wechat-open {
 }
 
 // -----------------------------------------------------------------------------
-// 10. 正文懒加载图片占位（assets/js/custom.js + plugin/image.html）
+// 10. 图片加载占位（assets/js/custom.js + plugin/image.html）
 //
-//     - 只包裹 Markdown 正文图（render-image.html 传 Skeleton=true），
-//       不给头像 / logo / 首页卡片加骨架。
+//     - 正文图（render-image.html 传 Skeleton=true）、文章封面和首页卡片
+//       （Matches 含 featured-image）都包 .image-skeleton；头像 / logo 不包。
+//     - 首页 Hero 是 CSS 背景图，不走这里，见第 5 节的 ::after + initHeroSkeleton。
 //     - 骨架是**盖在图片上方**的一层（z-index: 2），不是垫在下面：
 //       慢网下浏览器会从上到下渐进绘制图片，如果骨架在下面，未加载完的图片会
 //       从骨架上面露出来。盖在上面才能保证加载期间只看到骨架。

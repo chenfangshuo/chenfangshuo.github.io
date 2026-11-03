@@ -13,6 +13,8 @@
  * 2) 雪花特效：同目录的 snow.js（Canvas 实现），由 js.Build 内联进同一份产物
  * 3) 正文懒加载图片骨架：图片加载完成后给 .image-skeleton 加 is-loaded，
  *    让盖在图片上方的占位动画淡出
+ * 4) 首页 Hero 背景图骨架：用同 URL 的 Image 探针等背景图加载完成，
+ *    给 .home-profile 加 is-hero-loaded，让 ::after 骨架淡出
  */
 
 import { initSnow } from './snow.js'
@@ -89,12 +91,32 @@ const initImageSkeletons = () => {
   })
 }
 
+const initHeroSkeleton = () => {
+  const hero = document.querySelector('.home.posts .home-profile')
+  if (!hero) return
+
+  // Hero 图是 .home-profile::before 的 background-image，CSS 没法监听背景图 load。
+  // 从计算样式里把 URL 抠出来，用一张同 URL 的 Image 做探针（命中缓存时立即完成）。
+  const bg = getComputedStyle(hero, '::before').backgroundImage
+  const match = bg.match(/url\(["']?([^"')]*hero\.webp[^"')]*)["']?\)/)
+  if (!match) return
+
+  const done = () => hero.classList.add('is-hero-loaded')
+  const probe = new Image()
+  probe.onload = done
+  probe.onerror = done
+  probe.src = match[1]
+
+  if (probe.complete && probe.naturalWidth > 0) done()
+}
+
 const init = () => {
   // ⚠️ 顺序有意为之：hitokoto 先启动。两者现在在同一份 bundle 里，而 initHitokoto 是
   //    async（在第一个 await 处就返回，后续不受影响），所以万一下面的 initSnow() 同步抛错，
   //    一言也不会被连累。别把两行对调。
   //    骨架是同步的，放在最前面，让未加载的图片尽早进入占位状态。
   initImageSkeletons()
+  initHeroSkeleton()
   initHitokoto()
   initSnow()
   console.log('custom.js loaded', fixit && fixit.version)

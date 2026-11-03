@@ -1,12 +1,15 @@
 {{- /*
   站点侧覆盖：来源 themes/FixIt/layouts/_partials/plugin/image.html @ v1.0.0-beta.5。
 
-  与主题版本的唯一差异是 $alt 的计算：posts/single.html 给 hero 封面传的是
-  "Title"（值为页面 Description），主题原逻辑 `$alt := .Alt | default $src`
-  会把图片 URL 当成 alt。这里让 featured image 优先用 featured_image_alt /
-  页面标题；其它图片仍按 Alt → Title → src 回退。
+  与主题版本有两处差异：
+  1. $alt 计算：posts/single.html 给 hero 封面传的是 "Title"（值为页面 Description），
+     主题原逻辑 `$alt := .Alt | default $src` 会把图片 URL 当成 alt。这里让
+     featured image 优先用 featured_image_alt / 页面标题；其它图片仍按
+     Alt → Title → src 回退。
+  2. 骨架：正文图（Skeleton=true）、文章封面和首页卡片（Matches 含 featured-image）
+     外包一层 .image-skeleton；头像 / logo 不包。
 
-  ⚠️ 升级主题时先 diff 本文件与主题同名文件，只重新应用这一处差异。
+  ⚠️ 升级主题时先 diff 本文件与主题同名文件，只重新应用这两处差异。
 */ -}}
 
 {{- /*
@@ -131,8 +134,11 @@
   {{- $height = $height | default $resource.Height | default "" -}}
   {{- $width = $width | default $resource.Width | default "" -}}
 {{- end -}}
-{{- /* 正文懒加载图包一层骨架；hero/头像/卡片不会传 Skeleton。 */ -}}
-{{- $skeleton := and .Skeleton (eq .Loading "lazy") $width $height -}}
+{{- /* 正文图、文章封面、首页卡片都包骨架；头像 / logo 等不包。
+       封面判断按文件名 featured-image*：get-cover 的 Matches 只记了 preview（GetMatch 不带扩展名）。 */ -}}
+{{- $srcBase := path.Base (urls.Parse .Src).Path -}}
+{{- $isFeatured := hasPrefix $srcBase "featured-image" -}}
+{{- $skeleton := and (or .Skeleton $isFeatured) $width $height -}}
 
 {{- if .Linked -}}
 <a class="lightgallery" target="_blank" href="{{ $src }}" title="{{ .Title | default $alt }}" data-thumbnail="{{ $src }}"{{ with $caption }} data-sub-html="<h2>{{ . }}</h2>{{ with $.Title }}<p>{{ . }}</p>{{ end }}"{{ end }}{{ with .Rel }} rel="{{ . }}"{{ end }}>
