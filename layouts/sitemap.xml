@@ -14,10 +14,20 @@
     <xhtml:link rel="alternate" hreflang="{{ .Language.Locale }}" href="{{ .Permalink }}"/>{{ end }}
     <xhtml:link rel="alternate" hreflang="{{ .Language.Locale }}" href="{{ .Permalink }}"/>{{ end }}
   </url>{{ end }}{{ end }}
-  {{- /* /archives/ 是 home 的 archives 输出，不在 .Pages 里，单独补一条。 */ -}}
+  {{- /* /archives/ 是 home 的 archives 输出，不在 .Pages 里，单独补一条。
+         它的更新时间取「所有文章里最新的 Lastmod」，而不是首页 front matter 的 Lastmod ——
+         后者不随文章更新变化，会给 Google 一个过期的信号。
+         注意两件事：
+         1) 只取 posts section：关于 / 友链 / 搜索也属于 RegularPages，但它们不出现在归档页里；
+         2) **不能**把首页时间作为初始值再取 max，否则单独更新首页仍会推动归档时间。
+            只有一篇文章都没有时才回退到首页。 */ -}}
+  {{- $archivesLastmod := site.Home.Lastmod -}}
+  {{- with where site.RegularPages "Section" "posts" -}}
+    {{- $archivesLastmod = (index (.ByLastmod.Reverse) 0).Lastmod -}}
+  {{- end }}
   <url>
     <loc>{{ "archives/" | absURL }}</loc>
-    {{- with site.Home.Lastmod }}{{ if not .IsZero }}
+    {{- with $archivesLastmod }}{{ if not .IsZero }}
     <lastmod>{{ safeHTML (.Format "2006-01-02T15:04:05-07:00") }}</lastmod>
     {{- end }}{{ end }}
   </url>

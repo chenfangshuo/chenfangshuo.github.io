@@ -659,6 +659,13 @@ html.share-wechat-open {
     animation: none;
     transition: none;
   }
+
+  // Hero 的骨架是 ::after（不是 ::before），上面那条覆盖不到它：
+  // 慢网/背景图等待期间，开了减少动效的用户仍会看到 3.8s 的呼吸动画。
+  .home.posts .home-profile::after {
+    animation: none;
+    transition: none;
+  }
 }
 
 /// =============================================================================

@@ -11,7 +11,10 @@
   所以这里的 alt / 宽高与实际 og:image 是同一张图。
 */ -}}
 
-{{- with .Params.images -}}
+{{- /* 页面自己的 images 优先，没有就用 [params].images 的站点兜底图。
+       主题的 OG/Twitter 模板用的是同一套回退，这里必须跟着走，
+       否则「用兜底图」的页面（首页、标签总览、关于、友链…）拿不到 alt。 */ -}}
+{{- with (.Params.images | default site.Params.images) -}}
   {{- $page := $ -}}
   {{- $alt := $page.Params.featured_image_alt -}}
   {{- if not $alt -}}

@@ -23,6 +23,11 @@ let wheelBound = false
 let wheelAccum = 0
 let wheelResetTimer: ReturnType<typeof setTimeout> | undefined
 
+// 键盘用户关闭灯箱后应该回到「当初点开的那张图」，否则焦点落在 body，
+// 再按 Tab 会从页首重新开始。lightGallery 核心关闭时只 blur()，不恢复焦点。
+let lastTrigger: HTMLElement | null = null
+let triggerBound = false
+
 function wheelPixels(event: WheelEvent): number {
   // deltaMode: 0 = 像素，1 = 行，2 = 页。统一换算成像素再累计。
   if (event.deltaMode === 1) {
@@ -86,6 +91,24 @@ function initLightGallery() {
     licenseKey: 'none',
     mobileSettings: { controls: false, showCloseIcon: false, download: true },
   })
+
+  if (!triggerBound) {
+    // 捕获阶段记录真正被点/被按回车激活的那张图
+    contentEl.addEventListener('click', (event) => {
+      const link = (event.target as Element | null)?.closest?.('.lightgallery')
+      if (link)
+        lastTrigger = link as HTMLElement
+    }, true)
+    // lgAfterClose 是 lightGallery 在容器上 dispatchEvent 派发的 DOM 事件，
+    // **不是**初始化选项里的回调（核心 minified 产物里是 new CustomEvent + dispatchEvent）。
+    // 该事件不冒泡，所以在 document 上用捕获阶段接。
+    document.addEventListener('lgAfterClose' as any, () => {
+      if (lastTrigger?.isConnected)
+        lastTrigger.focus({ preventScroll: true })
+      lastTrigger = null
+    }, true)
+    triggerBound = true
+  }
 
   if (!wheelBound) {
     document.addEventListener('wheel', onWheel, { capture: true, passive: false })

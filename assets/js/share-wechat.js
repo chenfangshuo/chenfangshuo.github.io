@@ -100,10 +100,12 @@
     }
   }
 
-  function show() {
+  function show(trigger) {
     if (!modal.hidden) return
     // 顺序必须是：记录原焦点 → 取消 hidden → 再聚焦；隐藏元素拿不到焦点。
-    lastFocus = document.activeElement
+    // 记录的是真正的触发按钮，而不是 document.activeElement —— 鼠标点击不会先聚焦，
+    // 记 activeElement 会让关闭后焦点落到别处。
+    lastFocus = trigger || document.activeElement
     modal.hidden = false
     document.documentElement.classList.add('share-wechat-open')
     setBackgroundInert(true)
@@ -152,7 +154,13 @@
 
   btn.addEventListener('click', function (event) {
     event.preventDefault()
-    show()
+    show(btn)
+  })
+  // 入口是 <a role="button">：role 只改语义，不会自动补原生按钮的空格键行为。
+  btn.addEventListener('keydown', function (event) {
+    if (event.key !== ' ' && event.key !== 'Spacebar') return
+    event.preventDefault()
+    show(btn)
   })
   closeBtn.addEventListener('click', hide)
   modal.addEventListener('click', function (event) {

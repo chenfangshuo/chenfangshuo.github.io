@@ -24,14 +24,17 @@ on:
         type: boolean
         default: false
 
+# 顶层只给读仓库的权限；Pages 写权限和 OIDC 只下发给真正需要它的 deploy job。
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
   cancel-in-progress: false # 不要取消正在进行的生产部署
+  # 默认只留 1 个等待中的运行，新 push 会把它顶掉。被顶掉的那次改动仍然进了下一次构建，
+  # 但它的 git diff 基线已经错位，搜索推送会漏掉中间那次新增的文章。queue: max 让等待中的
+  # 运行排队而不被替换（上限 100）。
+  queue: max
 
 defaults:
   run:
@@ -124,6 +127,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -138,14 +144,15 @@ jobs:
   # 在 Cloudflare 加了一条 Cache Rule 让 HTML 也能边缘缓存（默认 HTML 是 DYNAMIC 不缓存的）。
   # 代价是内容更新后边缘可能还留着旧 HTML —— 所以每次部署必须 purge，两件事是一套的，缺一不可。
   #
-  # ⚠️ 这里**故意不加 continue-on-error**：purge 失败 = 访客可能看到旧页面（最长 10 分钟，
-  #    即 GitHub Pages 给 HTML 的 max-age=600），属于用户可见的问题，应该让 CI 红给你看。
-  #    对比 notify-baidu —— 那个失败了没有任何用户可见后果，所以它才 continue-on-error。
+  # ⚠️ 这里**故意不加 continue-on-error**：purge 失败 = 访客可能看到旧页面（最长 1 天，
+  #    即 Cache Rule 给 200–299 的边缘 TTL），属于用户可见的问题，应该让 CI 红给你看。
+  #    对比 notify-search-engines —— 那个失败了没有任何用户可见后果，所以它才 continue-on-error。
   #
-  # 没配 Secret 时优雅跳过（不会把 CI 弄红），方便先合并这份 workflow 再去建 token。
+  # 没配 Secret 时**直接失败**：HTML 在边缘缓存 1 天，跳过 purge 等于让访客看一天旧页面。
   purge-cloudflare:
     needs: deploy
     runs-on: ubuntu-latest
+    permissions: {} # 只用 CF_API_TOKEN 调外部 API，不需要 GITHUB_TOKEN 的任何权限
     steps:
       - name: Purge Cloudflare cache
         env:
@@ -154,21 +161,29 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${CF_API_TOKEN:-}" ] || [ -z "${CF_ZONE_ID:-}" ]; then
-            echo "::notice::CF_API_TOKEN / CF_ZONE_ID 未配置，跳过 purge。"
-            echo "若已启用 HTML 边缘缓存（Cache Rule），跳过 purge 会让内容更新最长延迟 10 分钟。"
+            echo "::error::CF_API_TOKEN / CF_ZONE_ID 未配置，无法 purge。"
+            echo "HTML 在边缘缓存 1 天，不 purge 会让访客最长一整天看到旧页面，所以这里必须失败。"
             echo "配置方法见 MAINTENANCE.local.md「国内访问优化」。"
-            exit 0
+            exit 1
           fi
           # purge_everything 最简单也最不容易漏。代价是带指纹的 CSS/JS 也会被清掉、
           # 下次访问重新拉一遍 —— 本站很小，可忽略。想更精细可以换成
           # {"hosts":["fars.cc"]}，但那样要自己保证不漏。
-          resp=$(curl -sS --max-time 30 -X POST \
+          # --fail-with-body 让 HTTP 4xx/5xx 也返回非零退出码，同时把响应体留在变量里。
+          # 必须用 if 接住：直接 `resp=$(curl ...)` 在 set -e 下会当场退出，
+          # 响应体再也打不出来，排查 Token / 权限问题时就没有线索了。
+          if ! resp=$(curl -sS --fail-with-body --max-time 30 -X POST \
             "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
             -H "Authorization: Bearer ${CF_API_TOKEN}" \
             -H "Content-Type: application/json" \
-            --data '{"purge_everything":true}')
+            --data '{"purge_everything":true}'); then
+            echo "$resp"
+            echo "::error::Cloudflare purge 请求失败（网络错误或 HTTP 4xx/5xx）——边缘可能继续返回旧 HTML"
+            exit 1
+          fi
           echo "$resp"
-          echo "$resp" | grep -q '"success":true' \
+          # 不要写死成 '"success":true'：JSON 排版一变（冒号后带空格）就会把成功误判成失败。
+          echo "$resp" | grep -qE '"success"[[:space:]]*:[[:space:]]*true' \
             || { echo "::error::Cloudflare purge 失败——边缘可能继续返回旧 HTML"; exit 1; }
 
   # 把本次变更的文章 URL 推给百度和 IndexNow（Bing / Yandex 等）。

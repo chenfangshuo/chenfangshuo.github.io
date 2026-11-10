@@ -47,6 +47,15 @@ BAIDU_ENDPOINT = "http://data.zz.baidu.com/urls"
 INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow"
 ZERO_SHA = "0" * 40
 
+# 百度接口把 token 放在 query 里。错误响应体如果是代理/网关的 HTML 错误页，
+# 常会把上游请求地址整段回显，于是 token 就进了日志和 Step Summary。
+# 所有面向日志的输出统一过一遍 redact。
+TOKEN_RE = re.compile(r"(token=)[^&\s\"'<>]+")
+
+
+def redact(msg: str) -> str:
+    return TOKEN_RE.sub(r"\1***", msg)
+
 FM_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.S)
 SLUG_RE = re.compile(r"""^slug:\s*["']?([^"'\s#]+)""", re.M)
 DRAFT_RE = re.compile(r"^draft:\s*true\s*(?:#.*)?$", re.M | re.I)
@@ -60,11 +69,13 @@ def summary(line: str) -> None:
 
 
 def notice(msg: str) -> None:
+    msg = redact(msg)
     print(f"::notice::{msg}")
     summary(f"- {msg}")
 
 
 def warn(msg: str) -> None:
+    msg = redact(msg)
     print(f"::warning::{msg}")
     summary(f"- ⚠️ {msg}")
 
