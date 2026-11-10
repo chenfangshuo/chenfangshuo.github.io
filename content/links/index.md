@@ -15,8 +15,8 @@ comment: true
 
 - 博客名：ForSure's Blog
 - 简介：不知道写什么
-- 链接：https://forsure.live
-- 图片：https://forsure.live/images/til-the-end.jpg
+- 链接：https://fars.cc
+- 图片：https://fars.cc/images/til-the-end.jpg
 
 <!--
   迁移说明：好友列表在 data/friends.yml。

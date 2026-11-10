@@ -1,5 +1,5 @@
 /*!
- * 雪花特效（Canvas 实现）— https://forsure.live
+ * 雪花特效（Canvas 实现）— https://fars.cc
  * Copyright (c) 2026 Chen Fangshuo
  * SPDX-License-Identifier: MIT · 完整许可文本见仓库根目录 LICENSE
  *
@@ -10,7 +10,7 @@
  */
 
 /**
- * 雪花特效 — forsure.live（Canvas 实现，替换 DHTML Snowstorm 1.44）
+ * 雪花特效 — fars.cc（Canvas 实现，替换 DHTML Snowstorm 1.44）
  *
  * 由同目录的 custom.js `import { initSnow } from './snow.js'` 引入。Hugo 的
  * js.Build（esbuild）会把它内联进同一份 custom.min.<hash>.js —— 那份是带指纹、带 SRI、

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 r"""
-搜索引擎通知 —— forsure.live
+搜索引擎通知 —— fars.cc
 
 用法（CI 里用 python3，纯标准库）：
     python3 scripts/seo-submit.py --mode changed --before <sha> --after <sha>
@@ -9,7 +9,7 @@ r"""
 
 行为：
 - changed：用 git diff 找出本次推送改过的 content/posts/*/index.md，读 front matter
-  的 slug（缺失时用目录名），映射为 https://forsure.live/<slug>/；draft: true 跳过。
+  的 slug（缺失时用目录名），映射为 https://fars.cc/<slug>/；draft: true 跳过。
 - full：抓线上 sitemap.xml 的 <loc>；百度只挑已发布文章 URL，IndexNow 推全部。
 - 百度：只推文章 URL，默认最多 10 条（--max-baidu 可调）。
 - IndexNow：changed 模式推变更文章 + 首页；full 模式推 sitemap 全部 URL。
@@ -38,8 +38,8 @@ for _stream in (sys.stdout, sys.stderr):
 
 ROOT = Path(__file__).resolve().parent.parent
 CONTENT = ROOT / "content" / "posts"
-SITE = "https://forsure.live"
-HOST = "forsure.live"
+SITE = "https://fars.cc"
+HOST = "fars.cc"
 # 2026-11-03 本机实测：https://data.zz.baidu.com/urls 的证书主机名不匹配
 # （schannel WRONG_PRINCIPAL），因此暂保留 HTTP；未断言所有网络/CI 环境都不可用 HTTPS。
 # token 会以 query 明文经过网络；这是已知取舍，见 MAINTENANCE.local.md「百度 / IndexNow 推送」。
@@ -152,7 +152,7 @@ def fetch_sitemap() -> list[str]:
         req = urllib.request.Request(
             f"{SITE}/sitemap.xml",
             headers={
-                "User-Agent": "Mozilla/5.0 (compatible; forsure.live-seo-submit/1.0)",
+                "User-Agent": "Mozilla/5.0 (compatible; fars.cc-seo-submit/1.0)",
                 "Accept": "application/xml,text/xml,*/*",
             },
         )

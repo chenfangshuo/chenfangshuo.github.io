@@ -1,5 +1,5 @@
 # =====================================================================================
-# forsure.live — 站点配置（Hugo + FixIt v1）
+# fars.cc — 站点配置（Hugo + FixIt v1）
 #
 # 这里只写「与主题默认值不同」的项，其余全部继承 themes/FixIt/hugo.toml。
 # Hugo 默认会深度合并主题的 params，所以下面的 params 是增量覆盖，不会丢主题默认值。
@@ -12,7 +12,7 @@
 # =====================================================================================
 
 # --- 站点基本 -------------------------------------------------------------------
-baseURL = "https://forsure.live/"
+baseURL = "https://fars.cc/"
 title = "ForSure's Blog"
 theme = ["FixIt"]
 
@@ -72,7 +72,7 @@ author_archive = false
 # --- 作者 -----------------------------------------------------------------------
 [params.author]
 name = "ForSure"
-link = "https://forsure.live/"
+link = "https://fars.cc/"
 avatar = "/images/avatar.webp"   # 2026-10-10 由 avatar.jpg(576x576/63KB) 转来，省 52KB
 
 # --- 顶栏 -----------------------------------------------------------------------
@@ -155,7 +155,7 @@ enable = true
 
 [params.comment.twikoo]
 enable = true
-env_id = "https://twikoo.forsure.live"
+env_id = "https://twikoo.fars.cc"
 region = "ap-shanghai"
 path = ""                    # 留空 = 用 window.location.pathname，旧评论按路径自动接回
 visitor = true

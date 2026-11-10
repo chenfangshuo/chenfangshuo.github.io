@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 r"""
-站内死链检查 —— forsure.live
+站内死链检查 —— fars.cc
 
 在**构建产物** `public/` 上查死链，不联网。改 URL / 挪 slug / 动主题配置之后跑一次。
 
@@ -52,7 +52,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-SITE_HOST = "forsure.live"
+SITE_HOST = "fars.cc"
 SKIP_SCHEMES = ("mailto", "tel", "data", "javascript", "about", "blob", "ftp", "file", "ws", "wss")
 CSS_URL = re.compile(r"""url\(\s*['"]?([^'")]+)['"]?\s*\)""", re.I)
 # `(?<![\w-])` 很关键：否则 `data-id=` / `aria-name=` 也会被当成锚点目标，

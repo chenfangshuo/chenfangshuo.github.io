@@ -1,5 +1,5 @@
 /*!
- * 微信分享 —— forsure.live
+ * 微信分享 —— fars.cc
  * Copyright (c) 2026 Chen Fangshuo
  * SPDX-License-Identifier: MIT · 完整许可文本见仓库根目录 LICENSE
  *

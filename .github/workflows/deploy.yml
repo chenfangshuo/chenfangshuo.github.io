@@ -1,5 +1,5 @@
 # =============================================================================
-# 构建并发布 forsure.live
+# 构建并发布 fars.cc
 #
 # 设计要点（与「配好就长期不动」这个目标一致）：
 #   - Hugo 与 Dart Sass 版本都写死在 env 里，与本地一致 → 产物可复现
@@ -161,7 +161,7 @@ jobs:
           fi
           # purge_everything 最简单也最不容易漏。代价是带指纹的 CSS/JS 也会被清掉、
           # 下次访问重新拉一遍 —— 本站很小，可忽略。想更精细可以换成
-          # {"hosts":["forsure.live"]}，但那样要自己保证不漏。
+          # {"hosts":["fars.cc"]}，但那样要自己保证不漏。
           resp=$(curl -sS --max-time 30 -X POST \
             "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
             -H "Authorization: Bearer ${CF_API_TOKEN}" \
