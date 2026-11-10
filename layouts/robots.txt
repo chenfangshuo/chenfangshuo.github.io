@@ -8,7 +8,7 @@
       (空行)
       Sitemap: ...
   那个 `-}}` 会把它自己和 Sitemap 行之间的换行一起裁掉，实际输出变成
-      Disallow: /Sitemap: https://forsure.live/sitemap.xml
+      Disallow: /Sitemap: https://fars.cc/sitemap.xml
   （2026-10-26 实测确认，Google 因此读不到 Sitemap 声明）。
   主题锁在 submodule 上不能改，所以整份覆盖；上游修好后删掉本文件即可。
 */ -}}

@@ -1,10 +1,10 @@
 // 许可声明写成**单行** loud comment：Hugo 的 CSS 压缩器会保留 /*! 开头的注释，但会把换行
 // 折叠掉，多行写法的产物会变成 "/*!* 第一行\n* 第二行…" 那种排版事故。这一行会原样进
 // custom.min.<hash>.css。
-/*! 自定义样式 — https://forsure.live · Copyright (c) 2026 Chen Fangshuo · SPDX-License-Identifier: MIT · 许可全文见仓库根目录 LICENSE */
+/*! 自定义样式 — https://fars.cc · Copyright (c) 2026 Chen Fangshuo · SPDX-License-Identifier: MIT · 许可全文见仓库根目录 LICENSE */
 
 /// =============================================================================
-/// 自定义样式 — forsure.live
+/// 自定义样式 — fars.cc
 /// 由 FixIt 自动加载（assets/scss/custom.scss）
 /// 内容移植自旧 Hexo/Fluid 站点的 blog/source/css/，逐项说明见下。
 /// =============================================================================
@@ -231,7 +231,7 @@ $home-media-radius: 1rem;
 //
 // 遮罩恒为暗色、文字恒为白色 → 浅色模式下同样成立，所以不必写两套。
 //
-// 头像回归（2026-10-12）：顶栏已经写着 "ForSure's Blog"，横幅里再写一遍 "ForSure"
+// 头像回归（2026-10-12）：顶栏已经写着 "FarShore's Blog"，横幅里再写一遍 "FarShore"
 // 是重复信息，所以那行标题让位给头像 —— 头像本来就是主题原生组件，之前是本文件
 // 把它 display:none 藏掉的，现在放出来。
 //
@@ -243,7 +243,7 @@ $home-media-radius: 1rem;
 //
 // 高度：原来这里有 120/150/170/190 四级 min-height，头像进来后内容是 261px（手机）
 // / 277px（≥680px），**全部超过那四级**，它们已彻底失效，故删除。实测矩阵见
-// D:\Software\Blog\hero-compare.html（各视口 × 各方案的边框盒高度）。
+// D:\Software\Blog\lab\site\hero\hero-compare.html（各视口 × 各方案的边框盒高度）。
 // -----------------------------------------------------------------------------
 .home.posts .home-profile {
   position: relative;

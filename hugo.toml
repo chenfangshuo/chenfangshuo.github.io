@@ -13,7 +13,7 @@
 
 # --- 站点基本 -------------------------------------------------------------------
 baseURL = "https://fars.cc/"
-title = "ForSure's Blog"
+title = "FarShore's Blog"
 theme = ["FixIt"]
 
 # --- 语言 / 时区（FixIt v1 用 locale，languageCode 已废弃）----------------------
@@ -28,7 +28,7 @@ enableRobotsTXT = true
 enableGitInfo = true          # .Lastmod 取自 git 提交（CI 需 fetch-depth: 0）
 enableEmoji = true
 mainSections = ["posts"]
-copyright = "ForSure's Blog"
+copyright = "FarShore's Blog"
 summaryLength = 70           # 首页/列表摘要长度，对应旧站 auto_excerpt
 
 # --- 保留旧 URL -----------------------------------------------------------------
@@ -41,8 +41,8 @@ posts = "/:slug/"
 # =====================================================================================
 [params]
 
-description = "ForSure 的个人博客：电源与硬件、MPV/HDR、网络与自建服务的折腾记录"
-keywords = ["ForSure", "博客", "电源", "硬件", "MPV", "网络", "Hugo"]
+description = "FarShore 的个人博客：电源与硬件、MPV/HDR、网络与自建服务的折腾记录"
+keywords = ["FarShore", "博客", "电源", "硬件", "MPV", "网络", "Hugo"]
 # 非文章页（列表 / 标签 / 404）的 OG/Twitter 兜底图；文章页用自己的 images 覆盖。
 images = ["/og-home.png"]
 default_theme = "dark"       # 旧站 dark_mode.default: dark
@@ -71,7 +71,7 @@ author_archive = false
 
 # --- 作者 -----------------------------------------------------------------------
 [params.author]
-name = "ForSure"
+name = "FarShore"
 link = "https://fars.cc/"
 avatar = "/images/avatar.webp"   # 2026-10-10 由 avatar.jpg(576x576/63KB) 转来，省 52KB
 
@@ -81,7 +81,7 @@ desktop_mode = "sticky"
 blur = true
 
 [params.header.title]
-name = "ForSure's Blog"
+name = "FarShore's Blog"
 
 [params.header.subtitle]
 # 置空：旧站的 "AMD,YES!" 显示在首页 banner 上，FixIt 会渲染到顶栏，故留空。
@@ -93,7 +93,7 @@ typeit = false
 [params.home.profile]
 enable = true
 avatar_url = "/images/avatar.webp"
-title = "ForSure"             # 横幅里已被头像取代、视觉上 sr-only 隐藏，但**必须留着**：
+title = "FarShore"            # 横幅里已被头像取代、视觉上 sr-only 隐藏，但**必须留着**：
                               # 它是首页唯一的 <h1>（卡片用 h2），删空会伤 SEO 与读屏。
                               # 隐藏规则见 assets/scss/custom.scss 第 5 节。
 subtitle = "偷偷地Welcome一下!"   # 会被 hitokoto 随机一言替换；取不到就显示这句
@@ -212,7 +212,7 @@ cover = "/og-home.png"
 # JSON-LD 的 publisher。主题默认 name 为空，会把 BlogPosting 输出成 "name":""。
 # logo_url 用根路径的 PWA 图标：/images/ 被 robots.txt 屏蔽，不要用头像。
 [params.seo.publisher]
-name = "ForSure's Blog"
+name = "FarShore's Blog"
 logo_url = "/android-chrome-512x512.png"
 
 # --- 搜索引擎验证 ---------------------------------------------------------------
@@ -535,7 +535,7 @@ term = [
 # 它们生成的页面全是空页或重复页，而且没有任何站内链接指向（GSC 里的孤儿页）：
 #   categories  —— 全站 0 个分类（每篇 front matter 都是 categories: []）
 #   collections —— 全站 0 个合集
-#   authors     —— 单作者站，/authors/forsure/ 只是把所有文章再列一遍
+#   authors     —— 单作者站，/authors/farshore/ 只是把所有文章再列一遍
 # 以后真要用，把对应的 `xxx = "..."` 行加回来即可，taxonomy 页面会自动重新生成
 # （authors 还要把 [params] 里的 author_archive 改回 true）。
 # 文章 front matter 里留着的 categories: [] 字段无副作用，可留可删。

@@ -19,7 +19,7 @@ tags: ["dpt", "mosfet", "switching-loss", "python"]
 categories: []
 ---
 
-> **作者**：Chen Fangshuo（ForSure） · 2026-10-17 · 首发于 [forsure.live](https://forsure.live/double-pulse-test-at-home/)
+> **作者**：Chen Fangshuo（FarShore） · 2026-10-17 · 首发于 [forsure.live](https://forsure.live/double-pulse-test-at-home/)
 >
 > 文字与图片版权归作者所有，转载请注明出处并链回原文。配套脚本 `dpt_analyzer.py`：Copyright (c) 2026 Chen Fangshuo，`SPDX-License-Identifier: MIT`，完整许可文本见[仓库 LICENSE](https://github.com/chenfangshuo/chenfangshuo.github.io/blob/main/LICENSE)。
 

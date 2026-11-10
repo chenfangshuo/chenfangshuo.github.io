@@ -1,7 +1,7 @@
 ---
 title: 关于
 date: 2020-11-18T10:55:29+08:00
-description: "关于 ForSure"
+description: "关于 FarShore"
 comment: false
 toc: false
 ---

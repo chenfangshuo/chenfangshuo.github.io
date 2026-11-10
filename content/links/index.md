@@ -2,7 +2,7 @@
 title: 友链
 layout: friends
 date: 2020-11-18T10:55:29+08:00
-description: "ForSure's Blog 的友链"
+description: "FarShore's Blog 的友链"
 keywords:
   - 友情链接
   - 友链
@@ -13,7 +13,7 @@ comment: true
 
 在下方留言申请加入我的友链，按如下格式提供信息：
 
-- 博客名：ForSure's Blog
+- 博客名：FarShore's Blog
 - 简介：不知道写什么
 - 链接：https://fars.cc
 - 图片：https://fars.cc/images/til-the-end.jpg
