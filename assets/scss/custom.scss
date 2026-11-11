@@ -222,6 +222,80 @@ $home-media-radius: 1rem;
 }
 
 // -----------------------------------------------------------------------------
+// 4.1 首页文章卡片：鼠标跟随光斑（2026-11-11）
+//
+// custom.js 往每张卡片里注入两层预渲染的径向渐变，跟着指针走：
+//   .card-glow--main   主光，跟得比较紧
+//   .card-glow--trail  更大更淡的外圈，明显滞后 —— 第二级拖尾
+//
+// ⚠️ 不要把位置写回 background-position / CSS 变量再让渐变重画：那会让整张
+//    卡片（含封面图）每帧重绘一遍，代价和"只搬图层"完全不是一回事。这里光斑
+//    是一次性画好的渐变层，之后只改 transform，交给合成器。
+//
+// 层级：借鉴 https://ledihildawan.github.io/unicode-braille-animations/showcase.html
+// 的 bento-card —— 光斑在 z-index:0（卡片底色之上），封面图和正文全部
+// z-index:1，所以**图片不会被染色**，光只落在文字区的卡片底色上；
+// 图片底部本来就有 mask 渐隐，光会从那条渐隐带里透出来一点。
+//
+// 颜色：深色模式用冷白偏蓝；浅色模式改用低透明度的蓝色 —— 白色在浅底上
+// 完全看不见。用 light-dark() 跟随主题的 color-scheme。
+// -----------------------------------------------------------------------------
+.home.posts .summary {
+  position: relative;
+  isolation: isolate; // 把光斑的 z-index 关在卡片内
+
+  > .summary-media,
+  > .summary-body,
+  > .post-footer {
+    position: relative;
+    z-index: 1; // 封面 / 正文 / 页脚都盖在光斑之上
+  }
+
+  .card-glow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    width: var(--glow-size);
+    height: var(--glow-size);
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .5s ease;
+  }
+
+  &.is-spotlight .card-glow {
+    opacity: 1;
+  }
+
+  // 主光：480px（可见半径 240px），参考页的 600px 渐变 + 40% 透明大约就是这个尺度。
+  // 只保留"中心亮 → 边缘完全化开"的三段，避免出现光圈硬边。
+  .card-glow--main {
+    --glow-size: 30rem;
+    background: radial-gradient(circle closest-side,
+      light-dark(rgb(41 131 187 / .06), rgb(0 114 255 / .12)) 0%,
+      light-dark(rgb(41 131 187 / .025), rgb(0 114 255 / .05)) 50%,
+      transparent 100%);
+  }
+
+  // 拖尾：720px，比主光大约一圈，透明度压到很低，只负责"慢半拍"的余韵。
+  .card-glow--trail {
+    --glow-size: 45rem;
+    background: radial-gradient(circle closest-side,
+      light-dark(rgb(41 131 187 / .02), rgb(0 114 255 / .04)) 0%,
+      transparent 100%);
+  }
+
+  // JS 在减少动效时不会亮起（事件直接忽略、已亮起的会收光），
+  // 这条 CSS 再兜一层：元素存在也不显示，不留下静止的光斑。
+  @media (prefers-reduced-motion: reduce) {
+    .card-glow {
+      display: none;
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
 // 5. 首页 Hero：容器内圆角横幅
 //
 // FixIt 没有原生 hero。好在 .home-profile 就落在 main.fi-container 的页面宽度里，

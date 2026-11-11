@@ -15,6 +15,7 @@
  *    让盖在图片上方的占位动画淡出
  * 4) 首页 Hero 背景图骨架：用同 URL 的 Image 探针等背景图加载完成，
  *    给 .home-profile 加 is-hero-loaded，让 ::after 骨架淡出
+ * 5) 首页卡片鼠标跟随光斑：两层预渲染的径向渐变跟着指针走，外层明显滞后
  */
 
 import { initSnow } from './snow.js'
@@ -114,6 +115,150 @@ const initHeroSkeleton = () => {
   if (probe.complete && probe.naturalWidth > 0) done()
 }
 
+/**
+ * 5. 首页卡片鼠标跟随光斑
+ *
+ *    往每张首页卡片里注入两层预渲染的径向渐变（样式见 custom.scss 第 4.1 节）：
+ *    「主光」跟得比较紧，「拖尾」更大更淡、明显滞后。两级之间用不同的每帧
+ *    插值比例，形成柔和的跟随延迟。
+ *
+ *    ⚠️ 每帧只改 transform，不要改 background-position / CSS 变量再让渐变重画 ——
+ *       那会把整张卡片（含封面图）每帧重绘一遍，代价完全不一样。
+ *    ⚠️ 指针停下后 rAF 会自己收尾退出，不常驻；离开卡片也只是让拖尾走完最后
+ *       一小段，然后随 opacity 一起淡出。
+ */
+const initCardSpotlight = () => {
+  const cards = document.querySelectorAll('.home.posts .summary')
+  if (!cards.length) return
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+  // 精确指针（鼠标 / 触控板）才启用；纯触摸设备不绑定
+  if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
+
+  // ease = 每帧向指针插值的比例，越小拖得越久
+  const LAYERS = [
+    { className: 'card-glow card-glow--main', ease: 0.18 },
+    { className: 'card-glow card-glow--trail', ease: 0.05 },
+  ]
+
+  // 每张卡片的"按最后一次指针坐标重算目标"函数；滚动 / 窗口缩放 /
+  // 页面高度变化时统一调用
+  const retargets = []
+
+  // 运行中把系统动效关掉时立刻收光，不必等下一次 pointermove
+  reduceMotion.addEventListener?.('change', (e) => {
+    if (!e.matches) return
+    for (const card of cards) card.classList.remove('is-spotlight')
+  })
+
+  for (const card of cards) {
+    const nodes = LAYERS.map(({ className }) => {
+      const node = document.createElement('span')
+      node.className = className
+      node.setAttribute('aria-hidden', 'true')
+      card.appendChild(node)
+      return node
+    })
+
+    const points = LAYERS.map(() => ({ x: 0, y: 0 }))
+    let targetX = 0
+    let targetY = 0
+    let clientX = 0
+    let clientY = 0
+    let fresh = false
+    let hovering = false
+    let frame = 0
+
+    const step = () => {
+      frame = 0
+      // 减少动效下不再推进（元素本身由 CSS display:none 隐藏）；
+      // 之后偏好恢复时，下一次 pointermove 会重新唤醒
+      if (reduceMotion.matches) return
+      // transform 不改布局，这里的 rect 读取命中布局缓存，不会强制重排
+      const rect = card.getBoundingClientRect()
+      if (fresh) {
+        targetX = clientX - rect.left
+        targetY = clientY - rect.top
+        fresh = false
+      }
+
+      let moving = false
+      for (let i = 0; i < nodes.length; i++) {
+        const point = points[i]
+        const ease = LAYERS[i].ease
+        point.x += (targetX - point.x) * ease
+        point.y += (targetY - point.y) * ease
+        if (Math.abs(targetX - point.x) > 0.3 || Math.abs(targetY - point.y) > 0.3) {
+          moving = true
+        }
+        nodes[i].style.transform =
+          `translate3d(${point.x.toFixed(1)}px, ${point.y.toFixed(1)}px, 0) translate(-50%, -50%)`
+      }
+      if (moving) frame = requestAnimationFrame(step)
+    }
+
+    const wake = () => {
+      if (!frame) frame = requestAnimationFrame(step)
+    }
+
+    card.addEventListener('pointerenter', (e) => {
+      if (e.pointerType !== 'mouse' || reduceMotion.matches) return
+      const rect = card.getBoundingClientRect()
+      targetX = e.clientX - rect.left
+      targetY = e.clientY - rect.top
+      // 进入时直接落在指针处，避免从卡片左上角“飞”过来
+      for (const point of points) {
+        point.x = targetX
+        point.y = targetY
+      }
+      clientX = e.clientX
+      clientY = e.clientY
+      fresh = false
+      hovering = true
+      card.classList.add('is-spotlight')
+      wake()
+    })
+
+    card.addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'mouse' || reduceMotion.matches) return
+      clientX = e.clientX
+      clientY = e.clientY
+      fresh = true
+      hovering = true
+      card.classList.add('is-spotlight')
+      wake()
+    })
+
+    // 只认鼠标的 leave：触屏/笔在卡片上抬起也会发 pointerleave，
+    // 不能让它把仍悬停在卡片上的鼠标光斑关掉。
+    card.addEventListener('pointerleave', (e) => {
+      if (e.pointerType && e.pointerType !== 'mouse') return
+      hovering = false
+      card.classList.remove('is-spotlight')
+      // 不立刻停帧：让拖尾层把最后一段路走完，再自然退出
+      wake()
+    })
+
+    // 滚动 / 窗口缩放 / 页面高度变化时卡片会在指针下面移动，但不触发 pointermove。
+    // 用最后一次指针坐标重算目标，光斑才能继续"钉"在指针上。
+    retargets.push(() => {
+      if (!hovering || reduceMotion.matches) return
+      fresh = true
+      wake()
+    })
+  }
+
+  const retargetAll = () => {
+    for (const retarget of retargets) retarget()
+  }
+  window.addEventListener('scroll', retargetAll, { passive: true })
+  window.addEventListener('resize', retargetAll, { passive: true })
+  // Hero 一言换行、字体/图片加载都可能改变页面高度，但不一定触发 resize。
+  // 只观察文档整体尺寸，不逐张卡片观察。
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(retargetAll).observe(document.documentElement)
+  }
+}
+
 const init = () => {
   // ⚠️ 顺序有意为之：hitokoto 先启动。两者现在在同一份 bundle 里，而 initHitokoto 是
   //    async（在第一个 await 处就返回，后续不受影响），所以万一下面的 initSnow() 同步抛错，
@@ -121,6 +266,7 @@ const init = () => {
   //    骨架是同步的，放在最前面，让未加载的图片尽早进入占位状态。
   initImageSkeletons()
   initHeroSkeleton()
+  initCardSpotlight()
   initHitokoto()
   initSnow()
   console.log('custom.js loaded', fixit && fixit.version)
