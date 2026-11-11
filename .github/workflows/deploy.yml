@@ -42,7 +42,7 @@ defaults:
 
 env:
   HUGO_VERSION: 0.169.0
-  DART_SASS_VERSION: 1.107.1
+  DART_SASS_VERSION: 1.108.2
   TZ: Asia/Shanghai
   # 把并行渲染的 worker 数压到 1。
   # 起因是本地（Windows）构建有三到六成概率「卡很久」：Hugo 并发去和多个 Dart Sass

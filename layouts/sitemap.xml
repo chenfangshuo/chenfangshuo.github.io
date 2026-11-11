@@ -1,6 +1,6 @@
 {{ printf "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>" | safeHTML }}
 {{- /*
-  站点侧覆盖：来源 themes/FixIt/layouts/sitemap.xml @ v1.0.0-beta.5。
+  站点侧覆盖：来源 themes/FixIt/layouts/sitemap.xml @ v1.0.0-rc.2。
   唯一差异：末尾补 /archives/ —— 它是 home 的 archives 输出，不在 .Pages 里，
   主题模板不会收录。升级主题时先 diff 本文件与主题同名文件。
 */ -}}

@@ -10,14 +10,13 @@
 /// =============================================================================
 
 // -----------------------------------------------------------------------------
-// 0. 首页两块"大图"共用的圆角
+// 0. 首页 Hero 的圆角
 //
-//    Hero 横幅（第 5 节）与文章卡片的封面图（第 4 节）在首页上下相邻，圆角不一致会
-//    看着像两套设计，所以抽成一个变量，改这里两边同时生效。
+//    rc.2 起首页卡片改用主题的 --fi-global-border-radius（10px），这个 1rem 变量
+//    只留给 Hero 横幅（第 5 节）。两者刻意不同：Hero 是单独的大横幅，1rem 更柔和。
 //
 //    ⚠️ 它与 --fi-global-border-radius 是**两回事**：那个来自 hugo.toml 的
-//       global_border_radius（10px），管的是代码块 / 表格 / 正文里的图片；
-//       这里只管首页这两块大图（1rem，与 Hero 原本的取齐）。
+//       global_border_radius（10px），管的是卡片 / 代码块 / 表格 / 正文里的图片。
 // -----------------------------------------------------------------------------
 $home-media-radius: 1rem;
 
@@ -140,8 +139,11 @@ $home-media-radius: 1rem;
 // custom.min.css 在所有主题 CSS 之后加载，所以同优先级下我们的规则生效。
 // -----------------------------------------------------------------------------
 .summary .featured-image-preview {
+  position: relative; // rc.2 的 img 是绝对定位，骨架也钉在这个画框里
   overflow: hidden;
-  border-radius: $home-media-radius; // 与 Hero 一致（见第 0 节）
+  // rc.2 卡片外层圆角是 --fi-global-border-radius（10px）。这里不再用 1rem，
+  // 否则内圆角大于外圆角会显脏；Hero 仍用第 0 节的 $home-media-radius。
+  border-radius: var(--fi-global-border-radius, 10px);
 
   img {
     border-radius: 0; // 圆角交给外层画框，避免放大时圆角跟着一起变
@@ -158,26 +160,36 @@ $home-media-radius: 1rem;
     //    filter 过渡是绘制级动画，本来就得逐帧重栅格。实测见 MAINTENANCE「性能：首页卡片封面」。
   }
 
-  // 骨架包裹层：卡片预览有固定高度（约 270px），让 <a> / 骨架 / img 都填满它。
-  // 否则 <a> 里的 block 级 <span> 会让 <a> 变成 0×0，img 的 height:100% 解析成 0，
-  // 缩略图就“消失”了（2026-11-03 实测）。
-  > a {
-    display: block;
-    height: 100%;
-  }
-
+  // rc.2 把卡片封面改成 aspect-ratio 画框 + 绝对定位 img。骨架必须填满整个画框，
+  // 否则慢网下 .image-skeleton 会塌成 0 高，占位动画就看不见了。
   .image-skeleton {
+    position: absolute;
+    inset: 0;
     height: 100%;
   }
 
   .image-skeleton > img {
+    width: 100%;
     height: 100%;
     object-fit: cover;
   }
 }
 
-// 抵消主题那条"只有悬停图片本身才缩放整块"的规则（同优先级 + 靠后加载即可覆盖）
-.home.posts .summary .featured-image-preview:hover {
+// ⚠️ 优先级坑（2026-11-11 实测）：rc.2 的
+// `.home.posts .summary .featured-image-preview img { transition: scale .4s ease }`
+// 比上面嵌套出来的 `.summary .featured-image-preview img` 多两个类，会把
+// transform / filter 的过渡整条覆盖掉 —— 表现就是 hover 时缩放和对比度瞬间跳变。
+// 这里用同等优先级重新声明，靠“站点 CSS 后加载”赢回来。
+.home.posts .summary .featured-image-preview img {
+  transition: transform .5s cubic-bezier(.25, .46, .45, .94),
+              filter .5s cubic-bezier(.25, .46, .45, .94),
+              scale .4s ease;
+}
+
+// rc.2 自带的 `.summary-media:hover img { scale: 1.05 }` 与本站的整卡 hover
+// （transform 1.02 + contrast）会叠加；这里把前者中和掉，
+// 保证「悬停图片」和「悬停卡片其他位置」都是同一个 1.02。
+.home.posts .summary .summary-media:hover .featured-image-preview img {
   scale: 1;
 }
 
@@ -198,6 +210,8 @@ $home-media-radius: 1rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  // 必须用和上面第 184 行同一个高优先级选择器，否则 transition 仍会被它压回来
+  .home.posts .summary .featured-image-preview img,
   .summary .featured-image-preview img {
     transition: none;
   }
@@ -428,17 +442,16 @@ $home-media-radius: 1rem;
 }
 
 // -----------------------------------------------------------------------------
-// 7. 卡片与细节打磨（保持纵向卡片）
+// 7. 卡片与细节打磨（rc.2 卡片布局）
 //
-// 注意：**不动 .summary 的 padding-block** —— 主题那条虚线分隔符的 translate 是配着
-// 当前 1rem 的 padding 手调的，改了分隔线就会错位。只调子元素。
+// rc.2 的 .summary 自带 padding / 边框 / 阴影，封面用 .summary-media 的负 margin
+// 做全出血。**不要**再给 .featured-image-preview 加 margin，否则全出血会被破坏。
+// 这里只调节子元素间距。
 // -----------------------------------------------------------------------------
 .home.posts .summary {
-  .featured-image-preview { margin: 0.85rem auto 1rem; } // 原 0.6rem
-
   .single-title {
-    margin: 0.5rem 0 0.35rem;
-    font-size: 1.3rem;
+    margin: 0 0 0.35rem; // 封面的下边距由 .summary-media 提供
+    font-size: 1.25rem;
     line-height: 1.4;
 
     a { transition: color .3s ease; }
@@ -451,7 +464,21 @@ $home-media-radius: 1rem;
     line-height: 1.7;
   }
 
-  .post-footer { margin-block: 0.75rem 0; }
+  .post-footer {
+    margin-block: 0.75rem 0;
+    flex-wrap: wrap;           // 手机上标签太长时，整行掉到「阅读全文」下面
+    gap: 0.25rem 0.5rem;
+
+    > a { white-space: nowrap; } // 别把「阅读全文」挤成两行
+  }
+
+  // 标签之间是相邻的 <a>，Hugo 压缩后没有空白，默认没有换行机会；
+  // 改成 inline-block 才能在窄屏按标签换行，而不是整串溢出卡片。
+  .post-tags {
+    min-width: 0;
+
+    .post-tag { display: inline-block; }
+  }
 
   // 悬停整卡时标题也点亮，与第 4 节的封面放大呼应
   &:hover .single-title a { color: var(--fi-single-link-hover-color); }

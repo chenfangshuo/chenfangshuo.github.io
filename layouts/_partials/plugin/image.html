@@ -1,5 +1,5 @@
 {{- /*
-  站点侧覆盖：来源 themes/FixIt/layouts/_partials/plugin/image.html @ v1.0.0-beta.5。
+  站点侧覆盖：来源 themes/FixIt/layouts/_partials/plugin/image.html @ v1.0.0-rc.2。
 
   与主题版本有两处差异：
   1. $alt 计算：posts/single.html 给 hero 封面传的是 "Title"（值为页面 Description），
@@ -8,6 +8,8 @@
      Alt → Title → src 回退。
   2. 骨架：正文图（Skeleton=true）、文章封面和首页卡片（文件名 featured-image*）
      外包一层 .image-skeleton；头像 / logo 不包。alt 与骨架共用同一个文件名判定。
+
+  rc.2 新增的 watermark 逻辑原样保留，不要删。
 
   ⚠️ 升级主题时先 diff 本文件与主题同名文件，只重新应用这两处差异。
 */ -}}
@@ -41,6 +43,8 @@
   @param {Boolean} [.Optimise] - Override site param to enable optimisation
   @param {Boolean} [.CacheRemote] - Override site param to enable remote caching
   @param {Array} [.BlackList] - Override site param black list
+  @param {Boolean|String} [.Watermark] - Override site param; true/false or "text"/"image"
+  @param {Boolean} [.Skeleton] - Site extension: wrap in .image-skeleton
   @param {Object} [.Page] - Page context for page-level image config override
 
   @example
@@ -106,19 +110,72 @@
 {{- /* Optimise image and generate srcset processing */ -}}
 {{- $optim := .OptimConfig -}}
 {{- $optimise := .Optimise | default $config.optimise | default false -}}
+{{- $watermark := $config.watermark | default dict -}}
+{{- if not (reflect.IsMap $watermark) -}}
+  {{- $watermark = dict "enable" $watermark -}}
+{{- end -}}
+{{- $watermarkEnabled := $watermark.enable | default false -}}
+{{- $watermarkMode := "" -}}
+{{- if ne .Watermark nil -}}
+  {{- $watermarkValue := printf "%v" .Watermark -}}
+  {{- if ne $watermarkValue "" -}}
+    {{- if eq (printf "%T" .Watermark) "bool" -}}
+      {{- $watermarkEnabled = .Watermark -}}
+    {{- else -}}
+      {{- $watermarkMode = $watermarkValue -}}
+      {{- if eq $watermarkMode "false" -}}
+        {{- $watermarkEnabled = false -}}
+        {{- $watermarkMode = "" -}}
+      {{- else -}}
+        {{- $watermarkEnabled = true -}}
+        {{- if eq $watermarkMode "true" -}}{{- $watermarkMode = "" -}}{{- end -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- $watermarkConfigured := false -}}
+{{- if eq $watermarkMode "text" -}}
+  {{- $watermarkConfigured = ne (printf "%v" ($watermark.text | default "")) "" -}}
+{{- else if eq $watermarkMode "image" -}}
+  {{- $watermarkConfigured = ne (printf "%v" ($watermark.image | default "")) "" -}}
+{{- else -}}
+  {{- $watermarkConfigured = or $watermark.text $watermark.image -}}
+{{- end -}}
+{{- if and $watermarkEnabled (not $watermarkConfigured) -}}
+  {{- if eq $watermarkMode "text" -}}
+    {{- warnidf "warning-watermark-config" "[watermark] `text` mode requires `params.image.watermark.text`" -}}
+  {{- else if eq $watermarkMode "image" -}}
+    {{- warnidf "warning-watermark-config" "[watermark] `image` mode requires `params.image.watermark.image`" -}}
+  {{- else -}}
+    {{- warnidf "warning-watermark-config" "[watermark] Neither `image` nor `text` is configured, skipping watermark" -}}
+  {{- end -}}
+  {{- $watermarkEnabled = false -}}
+{{- end -}}
 {{- $srcset := "" -}}
-{{- if $optim | and $resource | and $optimise | and (not $isBlocked) -}}
+{{- $largest := dict -}}
+{{- if $optim | and $resource | and (or $optimise $watermarkEnabled) | and (not $isBlocked) -}}
   {{ $srcsetSlice := slice -}}
   {{- range $optim -}}
     {{- if .Process -}}
       {{- $processed := $resource.Process .Process -}}
+      {{- if $watermarkEnabled -}}
+        {{- $processed = dict "Image" $processed "Config" $watermark "Mode" $watermarkMode | partial "function/watermark.html" -}}
+      {{- end -}}
       {{- $srcsetSlice = $srcsetSlice | append (printf "%s %s" $processed.RelPermalink .descriptor) -}}
+      {{- if not $largest -}}
+        {{- $largest = $processed -}}
+      {{- else if gt $processed.Width $largest.Width -}}
+        {{- $largest = $processed -}}
+      {{- end -}}
     {{- end -}}
   {{- end -}}
   {{- $srcset = delimit $srcsetSlice ", " -}}
 {{- end -}}
 
 {{- $src := $resource.RelPermalink | default .Src -}}
+{{- if and $watermarkEnabled $largest -}}
+  {{- $src = $largest.RelPermalink -}}
+{{- end -}}
 {{- /* 封面判断按文件名 featured-image*：get-cover 的 Matches 只记了 preview（GetMatch 不带扩展名）。
        alt 与骨架共用同一个判定，避免“骨架认出来了、alt 没认出来”。 */ -}}
 {{- $srcBase := path.Base (urls.Parse .Src).Path -}}
