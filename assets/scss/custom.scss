@@ -97,15 +97,24 @@
 // 页脚有两颗心：
 //   .site-time i    —— 「本站已运行」前面的那颗
 //   .powered-heart  —— 「Hugo ♥ FixIt」中间那颗（由站点 layouts/_partials/powered.html 注入）
+//
+// ⚠️ 放大用 scale 而不是 font-size（2026-11-12 改）：
+//    font-size 过渡逐帧触发布局，还会把整行页脚临时撑高 1~2px ——
+//    悬停时周围的文字会跟着"抖"一下。scale 是合成器属性，零重排，倍率也更可控。
+//    display: inline-block 显式写出来：scale / transform 对纯行内元素不生效，
+//    现在两颗心都是 FontAwesome 的 <i>（.fa 本身已经给了 inline-block），
+//    但别指望这个前提永远成立。实测：改为 inline-block 后页脚行高不变（18.19px）。
+//    scale: 1.2 ≈ 原来的 font-size: larger（1.2×）。
 .site-time i,
 .powered-heart {
-  transition: color .4s ease, font-size .4s ease;
+  display: inline-block;
+  transition: color .4s ease, scale .4s ease;
 }
 
 .site-time i:hover,
 .powered-heart:hover {
   color: red;
-  font-size: larger;
+  scale: 1.2;
 }
 
 // -----------------------------------------------------------------------------
@@ -1093,10 +1102,18 @@ html.vt-solid .page.single:not(.special) .single-title > span {
   animation-timing-function: cubic-bezier(.22, 1, .36, 1);
 }
 
-// ⚠️ 只保留新标题快照、旧快照直接隐藏。
+// ⚠️ 只保留**旧**标题快照（首页卡片标题）、新快照直接隐藏 —— 和最初的设计
+//    意图正好相反。改这块之前先把下面整段读完，别只看第一句。
 // 默认是旧/新快照交叉淡入，飞行中途两张都不透明，看起来就是
 // "标题变淡到看不见、然后突然出现"（2026-11-12 反馈）。
-// 新快照是文章大标题的高分辨率版本，缩小填进 group 的框，全程可见。
+//
+// 原计划是"只留新快照"（文章大标题，分辨率高）：实测 Chrome 拍出来的新快照
+// 就是空白的，渐变字和 flipInX 入场动画都排除过了，**原因仍不明**。
+// 已排除的一个猜测：不是 vt-title-live-hide 加得太早 —— 它在 vt.ready
+// 之后才加（vt-shared.html），那时快照早就拍完了。
+// 所以现在反过来用旧快照：放大飞向文章标题，靠 filter 把卡片标题的洋红
+// 过渡成正文色，落位后交给 live 标题。代价是卡片标题被放大，且
+// object-fit: fill 在换行数不同时会轻微拉伸（见下）。
 ::view-transition-old(vt-title),
 ::view-transition-new(vt-title) {
   // 和封面同一个坑：快照默认 width:100%; height:auto，不写 100% 就不会跟着
@@ -1234,7 +1251,8 @@ html.vt-theme::view-transition-new(root) {
 // ⚠️ 这些必须放在 prefers-reduced-motion 里，别顺手塞进上面的 @media print。
 @media (prefers-reduced-motion: reduce) {
   // 页脚的两颗心：保留 hover 的终态（变红/变大），只去掉过渡。
-  // 真正贵的是 font-size 过渡——它逐帧触发布局；color 过渡本身很便宜。
+  // 现在两条属性（color / scale）一绘制一合成，本来就不贵；这里只是按
+  // reduced-motion 的语义把过渡停掉。
   // 注意：没有指针悬停时这两条 transition 不会运行，静止时零成本。
   .site-time i,
   .powered-heart {
