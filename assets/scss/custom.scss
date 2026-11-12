@@ -10,17 +10,6 @@
 /// =============================================================================
 
 // -----------------------------------------------------------------------------
-// 0. 首页 Hero 的圆角
-//
-//    rc.2 起首页卡片改用主题的 --fi-global-border-radius（10px），这个 1rem 变量
-//    只留给 Hero 横幅（第 5 节）。两者刻意不同：Hero 是单独的大横幅，1rem 更柔和。
-//
-//    ⚠️ 它与 --fi-global-border-radius 是**两回事**：那个来自 hugo.toml 的
-//       global_border_radius（10px），管的是卡片 / 代码块 / 表格 / 正文里的图片。
-// -----------------------------------------------------------------------------
-$home-media-radius: 1rem;
-
-// -----------------------------------------------------------------------------
 // 1. 自定义滚动条  ←  原 scrollbar.css
 //    纯 ::-webkit-scrollbar，与具体主题无关，可直接沿用。
 //    效果见页面右侧滚动条（不支持 Firefox / IE，与原站一致）
@@ -120,44 +109,37 @@ $home-media-radius: 1rem;
 }
 
 // -----------------------------------------------------------------------------
-// 4. 首页文章卡片：悬停卡片任意位置都放大封面图  ←  原 indeximg-hover.css 的效果
+// 4. 首页文章卡片：悬停整卡提亮封面（只调对比度，不缩放）
 //
-// 主题自带的行为是 `.home.posts .summary .featured-image-preview:hover { scale: 1.01 }`
-// —— 也就是说**只有鼠标停在图片上**才有 1% 的整块缩放；停在标题、摘要、"阅读全文"
-// 上毫无反应。旧站 Fluid 写的是 `.index-card:hover .index-img { transform: scale(1.05) }`，
-// 悬停整张卡片就放大图片。这里恢复成后者的行为，但倍数与滤镜是按实际观感调的
-// （旧站是 scale(1.05) 且无过渡曲线；我们收敛到 1.02 + contrast(110%)），
-// 并且实现得更克制一点：
+// 2026-11-12 用户反馈：一屏 4~5 张卡片同时放大 1.02 有点"吵"，只提对比度更克制。
+// 于是这里的 hover 只剩 filter: contrast(110%) —— 图片位置和尺寸完全不动，
+// 视觉上只是"被点亮"一格。
 //
-//   - 缩放的是**图片本身**（transform），画框尺寸不变 —— 不会像缩放整块那样
-//     连边框一起动，观感更稳
-//   - 画框加 overflow: hidden，放大后的图被裁在框内
-//   - 圆角用 $home-media-radius（第 0 节），与首页 Hero 横幅取齐 —— 这两块大图
-//     上下相邻，圆角不一致会很显眼；同时把图片自身的圆角去掉，避免"圆角套圆角"
-//   - 尊重系统的 prefers-reduced-motion
+// 主题自带 `.summary-media:hover .featured-image-preview img { scale: 1.05 }`，
+// 会让"鼠标停在图片上"时图片自己放大；下面压回 scale: 1，保证悬停卡片任何位置
+// （图片 / 标题 / 摘要 / 阅读全文）反应完全一致。
 //
+// 画框仍保留 overflow: hidden 和主题圆角，图片自身不要圆角 —— 避免"圆角套圆角"。
 // custom.min.css 在所有主题 CSS 之后加载，所以同优先级下我们的规则生效。
 // -----------------------------------------------------------------------------
 .summary .featured-image-preview {
   position: relative; // rc.2 的 img 是绝对定位，骨架也钉在这个画框里
   overflow: hidden;
-  // rc.2 卡片外层圆角是 --fi-global-border-radius（10px）。这里不再用 1rem，
-  // 否则内圆角大于外圆角会显脏；Hero 仍用第 0 节的 $home-media-radius。
+  // rc.2 卡片外层圆角是 --fi-global-border-radius（10px），内层跟着用同一个值，
+  // 否则内圆角大于外圆角会显脏。Hero 从 2026-11-12 起也用同一个变量（第 5 节）。
   border-radius: var(--fi-global-border-radius, 10px);
 
   img {
-    border-radius: 0; // 圆角交给外层画框，避免放大时圆角跟着一起变
-    // transform 和 filter 一起过渡，让"放大"与"提对比"同步发生
-    transition: transform .5s cubic-bezier(.25, .46, .45, .94),
-                filter .5s cubic-bezier(.25, .46, .45, .94);
+    border-radius: 0; // 圆角交给外层画框
+    transition: filter .5s cubic-bezier(.25, .46, .45, .94);
     filter: contrast(100%); // 显式给个起始值，否则 filter 从 none 开始无法平滑过渡
     // ⚠️ 这里**不要**加 will-change: transform。首页 4~5 张卡片封面在雪花运行时实测多花
     //    **8W**（26W → 把页面 <img> 全藏起来后 18W），而文章页没有卡片封面，同样的雪花只花 7W。
     //    归因（2026-10-12 实测，2026-11-02 订正）：这 8W 是"画布每帧重绘把整页栅格弄脏、
     //    这些图被**重新画了**一遍"，**不是**"多合成了一层" —— 删掉卡片封面的 will-change
     //    并没有降功耗，藏图才降。
-    //    悬停放大也不需要 will-change：transform 过渡 Chrome 会在动画期间自动提升图层；
-    //    filter 过渡是绘制级动画，本来就得逐帧重栅格。实测见 MAINTENANCE「性能：首页卡片封面」。
+    //    现在悬停只剩 filter 过渡（绘制级动画，本来就得逐帧重栅格），更不需要 will-change。
+    //    实测见 MAINTENANCE「性能：首页卡片封面」。
   }
 
   // rc.2 把卡片封面改成 aspect-ratio 画框 + 绝对定位 img。骨架必须填满整个画框，
@@ -178,17 +160,15 @@ $home-media-radius: 1rem;
 // ⚠️ 优先级坑（2026-11-11 实测）：rc.2 的
 // `.home.posts .summary .featured-image-preview img { transition: scale .4s ease }`
 // 比上面嵌套出来的 `.summary .featured-image-preview img` 多两个类，会把
-// transform / filter 的过渡整条覆盖掉 —— 表现就是 hover 时缩放和对比度瞬间跳变。
+// filter 的过渡整条覆盖掉 —— 表现就是 hover 时对比度瞬间跳变。
 // 这里用同等优先级重新声明，靠“站点 CSS 后加载”赢回来。
 .home.posts .summary .featured-image-preview img {
-  transition: transform .5s cubic-bezier(.25, .46, .45, .94),
-              filter .5s cubic-bezier(.25, .46, .45, .94),
-              scale .4s ease;
+  transition: filter .5s cubic-bezier(.25, .46, .45, .94);
 }
 
-// rc.2 自带的 `.summary-media:hover img { scale: 1.05 }` 与本站的整卡 hover
-// （transform 1.02 + contrast）会叠加；这里把前者中和掉，
-// 保证「悬停图片」和「悬停卡片其他位置」都是同一个 1.02。
+// rc.2 自带 `.summary-media:hover .featured-image-preview img { scale: 1.05 }`，
+// 会让鼠标停在图片上时单独放大；这里压回去。本站现在只在整卡 hover 时提对比度，
+// 悬停任何位置都不缩放。
 .home.posts .summary .summary-media:hover .featured-image-preview img {
   scale: 1;
 }
@@ -203,10 +183,9 @@ $home-media-radius: 1rem;
   overflow: hidden;
 }
 
-// 悬停卡片任意位置（图片 / 标题 / 摘要 / 阅读全文）→ 图片在画框内放大
+// 悬停卡片任意位置（图片 / 标题 / 摘要 / 阅读全文）→ 封面提对比度，尺寸不动
 .summary:hover .featured-image-preview img {
-  transform: scale(1.02); // 1.05 略夸张，收敛到 1.02
-  filter: contrast(110%); // 轻微的对比度提升，和放大一起给卡片一点"被点亮"的感觉
+  filter: contrast(110%);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -216,9 +195,7 @@ $home-media-radius: 1rem;
     transition: none;
   }
 
-  .summary:hover .featured-image-preview img {
-    transform: none; // 只去掉缩放/位移；对比度变化不算动效，保留
-  }
+  // 现在只有对比度变化，本身不算位移/缩放动效，不必再额外处理
 }
 
 // -----------------------------------------------------------------------------
@@ -328,14 +305,24 @@ $home-cover-fade: linear-gradient(180deg, #000 0%, #000 52%, rgba(0, 0, 0, .5) 8
 // -----------------------------------------------------------------------------
 // 5. 首页 Hero：容器内圆角横幅
 //
+// 2026-11-12 用户从 A/B/C/D 四个方案里选了 A「只对齐表面」：Hero 仍然是照片横幅 +
+// 恒白文字，但圆角、描边、底色全部换成下面文章卡片那一套 ——
+//   border-radius: var(--fi-global-border-radius)   （10px）
+//   border: 1px solid var(--fi-global-border-color) （和卡片同一条描边）
+//   background-color: light-dark(#fcfcfc, #1c212d)  （和卡片同底色）
+// 三处对齐后，Hero 和卡片不再是两套边缘语言，结构又不用动。
+// 四个方案的截图对比：D:\Software\Blog\lab\site\hero\hero-variants-2026-11-12.html
+//
 // FixIt 没有原生 hero。好在 .home-profile 就落在 main.fi-container 的页面宽度里，
 // 所以"容器内圆角横幅"是纯 CSS，不需要任何突破容器的 hack。
 //
-// 图片与遮罩都挂在 ::before 上，不再直接做 .home-profile 的 background —— 因为横幅
-// 也要"悬停放大"（与第 4 节的封面图同一套效果），而 background-size 从 cover 过渡到
-// 放大值是不可插值的（关键词 → 长度不能过渡），只能靠 transform: scale()。伪元素是
-// 唯一能整体缩放、又不会把标题和社交图标一起放大的载体 —— 直接 scale 容器的话文字
-// 会跟着变大、布局也会抖。
+// 图片与遮罩仍挂在 ::before 上，不再直接做 .home-profile 的 background：
+//   1) 遮罩是 background-image 的第一层渐变，和图片同一层，少一个元素、少一个
+//      z-index 要管；骨架 ::after 也正好排在它上面。
+//   2) 2026-10-10 ~ 2026-11-12 期间横幅做过悬停放大，只有 transform: scale()
+//      能平滑缩放（background-size 从 cover 到放大值不可插值）。现在悬停已和卡片
+//      统一成"只提对比度、不缩放"（见下方 hover 规则），这个理由不再成立，
+//      但保留 ::before 结构，避免为了省一层去动已经验证过的骨架/层级。
 //
 // 为此容器需要两件事：
 //   position: relative  给 ::before 定位；
@@ -344,10 +331,8 @@ $home-cover-fade: linear-gradient(180deg, #000 0%, #000 52%, rgba(0, 0, 0, .5) 8
 //                       "元素自身背景"先于"负 z-index 子元素"绘制，于是下面的
 //                       background-color 正好成了图片没加载出来时的兜底底色。
 //
-// 遮罩仍写成 background-image 里的第一层渐变：少一个元素、少一个 z-index 要管，
-// 而且渐变跟着图片一起被 scale，暗角不会随着放大而"变淡"。
-//
 // 遮罩恒为暗色、文字恒为白色 → 浅色模式下同样成立，所以不必写两套。
+// （描边和底色跟随明暗主题，但描边只有 1px，白字不会压到它上面。）
 //
 // 头像回归（2026-10-12）：顶栏已经写着 "FarShore's Blog"，横幅里再写一遍 "FarShore"
 // 是重复信息，所以那行标题让位给头像 —— 头像本来就是主题原生组件，之前是本文件
@@ -360,8 +345,10 @@ $home-cover-fade: linear-gradient(180deg, #000 0%, #000 52%, rgba(0, 0, 0, .5) 8
 // 死链接，现在正好用上）。
 //
 // 高度：原来这里有 120/150/170/190 四级 min-height，头像进来后内容是 261px（手机）
-// / 277px（≥680px），**全部超过那四级**，它们已彻底失效，故删除。实测矩阵见
+// / 277px（≥680px），**全部超过那四级**，它们已彻底失效，故删除。历史实测矩阵见
 // D:\Software\Blog\lab\site\hero\hero-compare.html（各视口 × 各方案的边框盒高度）。
+// 2026-11-12 加 1px 描边后实测高度 290 → 292px，宽度不变（block 的 width:auto
+// 会让描边向内收，不会溢出容器）。
 // -----------------------------------------------------------------------------
 .home.posts .home-profile {
   position: relative;
@@ -375,11 +362,19 @@ $home-cover-fade: linear-gradient(180deg, #000 0%, #000 52%, rgba(0, 0, 0, .5) 8
   margin: 0.5rem 0 1.25rem;
   padding: 1.25rem 1rem;
 
-  border-radius: $home-media-radius; // 与卡片封面一致（见第 0 节）
-  overflow: hidden;              // 裁掉溢出；放大后的图也被裁在这圈圆角里
-  background-color: #181c27;     // 图片没加载出来时的兜底，与页面同色
+  // 和文章卡片同一套边缘语言（2026-11-12，方案 A）：
+  // 圆角用主题变量（10px），描边颜色也直接用卡片那条。加 1px 描边时不希望
+  // 外框变高，所以显式 border-box（主题全局没给 .home-profile 定这个）。
+  box-sizing: border-box;
+  border: 1px solid var(--fi-global-border-color, #383f47);
+  border-radius: var(--fi-global-border-radius, 10px);
+  overflow: hidden;              // 裁掉溢出；底图也被裁在这圈圆角里
+  // 卡片底色：主题是 Sass 从页面底色调出来的（亮 +1% / 暗 +2%），没有对应的
+  // CSS 变量，这里写实测值 rgb(252,252,252) / rgb(28,33,45)。
+  // 图片没加载出来时也用它兜底，和卡片完全一致。
+  background-color: light-dark(#fcfcfc, #1c212d);
 
-  // 横幅的"图"：悬停时只由它做 transform / filter
+  // 横幅的"图"：悬停时只由它做 filter
   &::before {
     content: "";
     position: absolute;
@@ -399,7 +394,7 @@ $home-cover-fade: linear-gradient(180deg, #000 0%, #000 52%, rgba(0, 0, 0, .5) 8
     background-position: center;
     background-repeat: no-repeat;
 
-    // 放大 / 提对比的参数与第 4 节完全一致（1.02 + contrast(110%)），过渡曲线也同步；
+    // 悬停只提对比度、不缩放，和卡片封面一致（2026-11-12）。
     // 末尾多挂的 brightness(.9) 是 Hero 独有的：它是页面顶部的"底布"，稍微压暗一点
     // 就不会和下面那块高饱和的卡片封面抢注意力，白字也更稳。
     //   ⚠️ 悬停规则里必须原样重复同一个 brightness —— filter 整条链会整体插值，
@@ -407,9 +402,8 @@ $home-cover-fade: linear-gradient(180deg, #000 0%, #000 52%, rgba(0, 0, 0, .5) 8
     //   深浅只改这一个数（两处要一起改）：.9 ≈ 暗 10%，.8 ≈ 暗 20%
     //   （.9 实测亮度 55.17 → 49.6，即 −10%；早先试过 .65 = −35%，太闷）
     filter: contrast(100%) brightness(.9); // contrast 显式给起始值，否则从 none 无法平滑过渡
-    transition: transform .5s cubic-bezier(.25, .46, .45, .94),
-                filter .5s cubic-bezier(.25, .46, .45, .94);
-    will-change: transform;
+    transition: filter .5s cubic-bezier(.25, .46, .45, .94);
+    // 不再需要 will-change: transform —— 悬停已经不做 transform 了。
   }
 
   // 背景图加载前的骨架：与正文图共用 image-skeleton-breathe。
@@ -482,11 +476,10 @@ $home-cover-fade: linear-gradient(180deg, #000 0%, #000 52%, rgba(0, 0, 0, .5) 8
   .home-disclaimer { color: rgba(255, 255, 255, .8); }
 }
 
-// 悬停横幅任意位置（文字 / 图标 / 空白处）→ 底图在圆角框内放大、提对比
-// 倍数与对比度刻意写成和第 4 节完全相同的值，两块大图观感才是一套；
-// brightness 与常态逐字相同，所以悬停只是"放大 + 提对比"，不会把压暗一起改掉
+// 悬停横幅任意位置（文字 / 图标 / 空白处）→ 底图提对比，尺寸不动
+// 与卡片封面完全一致（只 contrast，不 scale）；brightness 与常态逐字相同，
+// 所以悬停只是"提对比"，不会把压暗一起改掉
 .home.posts .home-profile:hover::before {
-  transform: scale(1.02);
   filter: contrast(110%) brightness(.9);
 }
 
@@ -508,8 +501,7 @@ $home-cover-fade: linear-gradient(180deg, #000 0%, #000 52%, rgba(0, 0, 0, .5) 8
 
   .home.posts .home-profile::before { transition: none; }
 
-  // 与第 4 节同样的取舍：只去掉缩放，对比度变化不算动效，保留
-  .home.posts .home-profile:hover::before { transform: none; }
+  // 悬停现在只有对比度变化，没有位移/缩放，不必再单独处理
 }
 
 // -----------------------------------------------------------------------------
