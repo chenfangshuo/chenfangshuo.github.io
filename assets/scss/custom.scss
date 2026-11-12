@@ -13,24 +13,30 @@
 // 1. 自定义滚动条  ←  原 scrollbar.css
 //    纯 ::-webkit-scrollbar，与具体主题无关，可直接沿用。
 //    效果见页面右侧滚动条（不支持 Firefox / IE，与原站一致）
+//
+//    2026-11-12：轨道色改用 light-dark()，浅色模式下不再留一道深色细条；
+//    顺带删掉 -webkit-box-shadow —— 它其实仍是 WebKit 的兼容别名（不是"没人认"），
+//    但无前缀的 box-shadow 已经覆盖所有目标浏览器且值完全相同，留着只是冗余。
 // -----------------------------------------------------------------------------
 ::-webkit-scrollbar {
   width: 4px;
   height: 4px;
-  background-color: #181C27;
+  // 浅色模式下原来的深海军蓝会在最右侧留一道深色细条（滑块上下两端与圆角缺口）。
+  // 兜底先给深色，再交给 light-dark() 跟随明暗。
+  background-color: #181c27;
+  background-color: light-dark(#f1f3f5, #181c27);
 }
 
 ::-webkit-scrollbar-track {
   box-shadow: inset 0 0 6px rgba(0, 0, 0, .3);
-  -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, .3);
   border-radius: 10px;
-  background-color: #181C27;
+  background-color: #181c27;
+  background-color: light-dark(#f1f3f5, #181c27);
 }
 
 ::-webkit-scrollbar-thumb {
   border-radius: 10px;
   box-shadow: inset 0 0 6px rgba(0, 0, 0, .3);
-  -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, .3);
   background-color: #AAA;
 }
 
@@ -1266,6 +1272,31 @@ html.vt-theme::view-transition-new(root) {
   .single .highlight.code-block .code-expand-btn .fa-angles-down {
     animation: none !important;
     opacity: 1;
+  }
+
+  // ⚠️ animate.css 自带这条，别再写一遍（2026-11-12 复核时才发现）：
+  //    @media (prefers-reduced-motion: reduce), print {
+  //      .animate__animated { animation-duration: 1ms !important;
+  //                           animation-iteration-count: 1 !important; ... }
+  //    }
+  //    主题是把它当独立样式表引入的（/lib/animate/animate.min.<hash>.css），所以
+  //    标题 flipInX、目录 fadeIn、归档标题 pulse、回到顶部 fadeIn/fadeOut、顶栏下滑隐藏
+  //    早就已经自动降级了。这里曾照着"补缺口"的思路重复写了一条，已删。
+  //
+  //    顺带记住它为什么是 1ms 而不是 none：顶栏隐藏（header__fadeOutUp）靠
+  //    animation-fill-mode: both 保留关键帧终态 visibility: hidden，回到顶部靠
+  //    animationend 回调推进 —— 动画名一没就全卡住。"分毫长的 duration"才能两全。
+  //
+  // 下面这几条主题**没有**挂 animate__ 类，animate.css 那条盖不到，才需要站点补。
+  // 都是纯装饰，停用后回到正常可见的基准态：`tabSlideIn` / `jackInTheBox` 是从透明
+  // 过渡进正常态（基准态本来就是可见的），`border-color-fade` 与 `icon-animate`
+  // 的 0%/100% 就是基准值。所以直接 none 即可，不必像上面那样留 1ms。
+  // `.theme-switch i` 不在此列：主题自己已有 reduce-motion 的 `animation: none`。
+  footer .footer-line .animate-icon,
+  tab-container .tab-panel:not([hidden]),
+  .single .post-reward .reward-ways span[data-animation],
+  .single ul.fi-timeline[data-animation] .fi-timeline-item::before {
+    animation: none !important;
   }
 
   // 灯箱：遮罩、翻页、缩放全部压到近似瞬时。

@@ -74,14 +74,18 @@ const BASE_DRIFT = 4         // 每片自带的水平漂移 ±4 px/s，让居中
 // 觉得还是多就继续调大这个数
 // （17000 → 24000 约再少三成），整篇文档与每屏都按同一密度，改一个数就够。
 const AREA_PER_FLAKE = 17000 // 约每 17000 平方像素一片（按**整篇文档**的面积算）
+                             // ⚠️ 实际用的是 areaPerFlake()：大屏会按视口面积往上抬，
+                             //    所以 4K 一屏是 305 片而不是下面写的 488（见「设备档位」）。
 // ⚠️ 触顶后的已知限制（2026-10-17 第三方审查提出，核对属实）：达到上限后文档继续长高，
 //    新增区域**不会**补片（目标数量不再增加），要等回收流把粒子带到新区域；文档变矮时
 //    屏幕上方那一段也会暂时低于目标密度（见 syncField 的说明）。
 //    本站不常触发：1440 宽下最长文章 16933px（目标 1434 片），要触顶得 docH > 35417px，
-//    只有加载瞬间代码块展开态（47297px）会触顶；4K 宽（3840）下 16933px 的文章会常态
-//    触顶（目标 3824）。彻底解决要把"数量预算"与"空间覆盖"拆开 —— 目前不做，见
-//    MAINTENANCE 第七版。
-const MAX_FLAKES = 3000      // 上限，防止 4K + 长文章时画爆（4K × 8432px 文章实测 1905 片）
+//    只有加载瞬间代码块展开态（47297px）会触顶。4K 宽（3840）在 2026-11-12 加大屏护栏
+//    之后也不再常态触顶：16933px 的文章目标 2391 片，要 docH > 21250px 才会到 3000。
+//    彻底解决要把"数量预算"与"空间覆盖"拆开 —— 目前不做，见 MAINTENANCE 第七版。
+const MAX_FLAKES = 3000      // 上限，防止极端长文把数组撑爆
+                             // （"4K × 8432px 文章实测 1905 片"是 2026-10 旧密度 17000 下的历史值，
+                             //   现在同条件约 1190 片）
 const MAX_DPR = 2            // DPR 封顶 2：再高的物理密度看不见，像素/内存却翻倍
 const MAX_DT = 0.05          // dt 上限 50ms：切标签页回来时不要瞬移一整屏
 
@@ -97,6 +101,41 @@ const MAX_DT = 0.05          // dt 上限 50ms：切标签页回来时不要瞬�
 // 不受影响（容差见 MIN_FRAME_MS）。
 // ⚠️ 别再往上加"降分辨率""减雪花数量"之类的优化：上面 2)、3) 两条把那条路的收益证否了，
 //    代价却是实打实的画质下降。
+
+// -----------------------------------------------------------------------------
+// 设备档位（2026-11-12）
+//
+// 2026-11-12 复测确认了上面第 3 条：把粒子砍到 1/4，画布绘制调用从 11.1k 次/4s 降到
+// 5.1k 次，但那一层只值 23.2 → 13.7 ms/4s；而整页主线程的雪成本差值在噪声范围内。
+// 换句话说 **在本机测出来，降密度的收益小于噪声**，下面 areaPerFlake 更大程度上是
+// 视觉调整（别让大屏天空糊成一片），不是性能手段。
+// 低档之所以取"不建场"而不是"降密度 / 降帧率"：前者省掉的是每帧那次全屏合成，
+// 后者只动画多少像素或多久画一次，视觉代价明显（6.3「性能账目」实测 60→30fps 会顿）。
+// 判据都很粗（Firefox 没有 deviceMemory），取"宁可保守"的组合。
+//
+// ⚠️ 已知局限：saveData / lowEnd 在**模块求值时**算一次。页面开着时关掉省流、或网络
+//    从 2G 变好，不会自动建场，要刷新；反过来（开着时打开省流）也不会停。雪是装饰，
+//    刷新即可恢复，所以没有监听 connection.change。
+// -----------------------------------------------------------------------------
+const conn = navigator.connection
+const saveData = !!conn?.saveData || /^(slow-2g|2g)$/.test(conn?.effectiveType || '')
+const lowEnd = (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4
+// 想在低端机上保留雪就把这行改成 false —— 代价是那台机器每帧多一次全屏合成。
+const SKIP_ON_LOW_END = true
+
+// 大屏的**视觉**护栏：密度按面积线性增长，4K 一屏 488 片、是 1440×900 的 6.4 倍，
+// 看上去比小屏挤得多。视口面积超过 2M 平方像素后，每多 1M 把「每片占的面积」抬 15%，
+// 最多 1.6×（4K 一屏 488 → 305 片，2560×1440 的 217 → 173 片，1440×900 不动）。
+// 斜率刻意取缓：性能上收益接近零，目的只是别让大屏的天空糊成一片。
+const FLAKE_AREA_FREE = 2_000_000
+const FLAKE_AREA_STEP = 1_000_000
+const FLAKE_AREA_GROWTH = 0.15
+const FLAKE_AREA_MAX = 1.6
+const areaPerFlake = () => AREA_PER_FLAKE * Math.min(
+  FLAKE_AREA_MAX,
+  1 + Math.max(0, W * H - FLAKE_AREA_FREE) / FLAKE_AREA_STEP * FLAKE_AREA_GROWTH,
+)
+
 const MAX_FPS = 60
 const MIN_FRAME_MS = 1000 / MAX_FPS - 2 // 容差 2ms：正好 60Hz 的屏不会被误跳（rAF 时间戳有抖动）
 
@@ -254,7 +293,7 @@ const makeSprite = (rgb) => {
 // -----------------------------------------------------------------------------
 // 粒子池
 // -----------------------------------------------------------------------------
-const targetCount = () => Math.min(MAX_FLAKES, Math.round((W * docH) / AREA_PER_FLAKE))
+const targetCount = () => Math.min(MAX_FLAKES, Math.round((W * docH) / areaPerFlake()))
 
 const makeFlake = (yMin, yMax) => {
   const layer = LAYERS[(Math.random() * LAYERS.length) | 0]
@@ -387,10 +426,22 @@ const shrinkField = (prev, h) => {
 }
 
 // 文档高度会变（懒加载的图片、折叠面板）。用它重建"场"的尺寸。
-const syncField = () => {
+//
+// `densityChanged`：2026-11-12 加。密度系数 `areaPerFlake()` 现在依赖 **W × H**（视口面积），
+// 所以「只改窗口高度、文档高度一点没变」也会改变目标片数 —— 而本函数第一行就是
+// `h === docH` 早退，正好把这种情况跳过去（Codex 复核发现；只改宽度那条早就有
+// resizeField 兜着，见下面那段注释）。
+const syncField = (densityChanged = false) => {
   const h = PAGE_ANCHORED ? Math.max(H, document.documentElement.scrollHeight) : H
-  if (h === docH) return
+  if (h === docH && !densityChanged) return
   const prev = docH
+  // 文档没变、只有密度变了：按新目标等比对齐片数即可，**不要**动已有粒子的坐标
+  // （那会让整场雪跳一下）。多出来的走 syncCount 内部的等比随机抽稀；
+  // 不够的新片按"别铺在屏幕上"的规则放，随正常的下降流补回来。
+  if (h === prev) {
+    syncCount(-NEAR.radius, h, true)
+    return
+  }
   if (h < prev) shrinkField(prev, h)
   docH = h
   // 长高了：只给新长出来的那一条按同样密度补片（见 syncCount 的说明）
@@ -462,7 +513,7 @@ const staggerFirstScreen = () => {
     if (y >= top && y < bottom) staged++
   }
   if (!staged) return
-  const expected = (W * H) / AREA_PER_FLAKE   // 一屏的稳态片数（1440×900 下 76）
+  const expected = (W * H) / areaPerFlake()   // 一屏的稳态片数（1440×900 下 76）
   // T = 文档走一遍的时间 × (这一屏的片数 ÷ 一屏稳态片数)
   const span = ((docH / (SPEED * MEAN_LAYER_SPEED)) * (staged / expected)) * ENTER_SPAN
   for (let i = 0; i < particles.length; i++) {
@@ -645,6 +696,7 @@ const onScroll = () => { scrollY = window.scrollY || window.pageYOffset || 0 }
 
 const onResize = () => {
   const prevW = W
+  const prevH = H
   W = window.innerWidth
   H = window.innerHeight
   // DPR 也可能因为窗口被拖到另一块屏而变 → 跟着重建贴图
@@ -671,9 +723,10 @@ const onResize = () => {
   canvas.style.width = `${W}px`
   canvas.style.height = `${H}px`
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0) // 之后一律按 CSS 像素作画，DPR 交给矩阵
-  // 宽度变了 = 用户在缩放窗口（见 resizeField），否则就是"页面被撑高/变矮"
+  // 宽度变了 = 用户在缩放窗口（见 resizeField），否则就是"页面被撑高/变矮"。
+  // 高度变了也要传下去：视口面积决定密度（areaPerFlake），而文档高度可能一点没变。
   if (prevW > 0 && W !== prevW) resizeField(prevW)
-  else syncField()
+  else syncField(prevH !== H)
 }
 
 // DPR **单独**变化的兜底：把窗口拖到缩放比例不同的另一块屏（或系统缩放改档）时，
@@ -775,6 +828,11 @@ mqlReduce.addEventListener('change', onReduceChange)
 export const initSnow = () => {
   // 尊重 prefers-reduced-motion：与 custom.scss 第 4、5 节同一取舍 —— 直接不开
   if (mqlReduce.matches) return
+  // 省流 / 2G：不建场（见「设备档位」）。没有画布 = 没有每帧那次全屏合成。
+  if (saveData) return
+  // 低端机：同上。按本机测量，降密度的收益小于噪声；降帧率会明显顿 —— 所以低档
+  // 只有"开/不开"有意义（见 6.3）。
+  if (SKIP_ON_LOW_END && lowEnd) return
   // 移动端不画。这里用指针能力判断而不是旧版的 UA 正则：旧正则漏掉 iPadOS（它发桌面
   // Safari 的 UA），按宽度判断又会在窄窗口的桌面上误伤。(pointer: coarse) 描述的是
   // "主指针是触摸"，正是本意，且不怕 resize。
@@ -865,6 +923,9 @@ export const initSnow = () => {
       // （踩过：改完常量没重新构建就去测，脚本却用硬编码的期望值判定"通过"，
       //   结果测的是上一版产物。现在期望值一律从这里取。）
       AREA_PER_FLAKE, MAX_FLAKES, SPEED, MOUSE_WIND, MELT_RADIUS, MELT_TOTAL, ENTER_SPAN, MEAN_LAYER_SPEED, MAX_FPS,
+      // 实际生效的密度与档位（2026-11-12）：验证脚本算期望片数请用 areaPerFlake，
+      // 别再用上面的 AREA_PER_FLAKE —— 它在 ≥2Mpx 的视口上已经被抬高。
+      areaPerFlake: areaPerFlake(), lowEnd, saveData, skipOnLowEnd: SKIP_ON_LOW_END,
     }),
     start,
     stop,
