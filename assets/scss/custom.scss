@@ -979,7 +979,7 @@ html.share-wechat-open {
 //  a) 跨页根交叉淡入：@view-transition + 0.28s 的旧/新根动画。
 //     顶栏不单独命名 —— 命名元素会从根快照里独立出来，反而会干扰
 //     同文档的明暗切换圆形扩散；让它跟着根一起淡更稳。
-//  b) 首页卡片封面/标题 ↔ 文章页封面/标题的共享元素形变：
+//  b) 首页卡片封面 ↔ 文章页封面的共享元素形变（标题不做，两端方向相反）：
 //     名字由 layouts/_partials/vt-shared.html（head 内联）在 pageswap / pagereveal
 //     里动态写到 style 上，转场结束后清除。
 //  c) 明暗切换的圆形扩散：只在本轮切换期间加 html.vt-theme，

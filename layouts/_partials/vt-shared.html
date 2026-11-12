@@ -6,7 +6,7 @@
     放在 custom.js 里会错过它，文章页就写不上 view-transition-name。
   - 这里只做事件注册和命名，几十行；不引额外请求，也不用等 DOMContentLoaded。
 
-  pageswap：旧页面快照前，文章页命名自己的封面/标题，首页命名最后点击的那张卡片。
+  pageswap：旧页面快照前，文章页命名自己的封面，首页命名最后点击的那张卡片。
   pagereveal：新页面快照前，只有两端能配对时才命名（避免只有一边有名字的闪动），
               并在转场结束后清掉名字、去掉 html.vt-shared。
 */ -}}
@@ -119,7 +119,7 @@
       const to = destinationPath(event)
 
       if (document.querySelector('.page.single')) {
-        // 只有回首页才做封面/标题形变；去标签页/另一篇文章不做，
+        // 只有回首页才做封面形变；去标签页/另一篇文章不做，
         // 避免旧页面单边命名、又没有新页面配对。
         if (to && to !== '/') return
         nameArticle()
