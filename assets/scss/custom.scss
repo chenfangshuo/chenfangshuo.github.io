@@ -233,12 +233,12 @@ $home-media-radius: 1rem;
 //    是一次性画好的渐变层，之后只改 transform，交给合成器。
 //
 // 层级：借鉴 https://ledihildawan.github.io/unicode-braille-animations/showcase.html
-// 的 bento-card —— 光斑在 z-index:0（卡片底色之上），封面图和正文全部
-// z-index:1，所以**图片不会被染色**，光只落在文字区的卡片底色上；
-// 图片底部本来就有 mask 渐隐，光会从那条渐隐带里透出来一点。
+// 的 bento-card —— 光斑在 z-index:0（卡片底色之上），封面图和正文全部 z-index:1。
+// 但真正的隔离靠 .card-glow-mask：wrapper 顶边对齐封面底边 + overflow:hidden，
+// 图片（含底部 mask 渐隐）**完全不会被染色**，光只落在封面下方的文字区/页脚底色上。
 //
-// 颜色：深色模式用冷白偏蓝；浅色模式改用低透明度的蓝色 —— 白色在浅底上
-// 完全看不见。用 light-dark() 跟随主题的 color-scheme。
+// 颜色：深色用浅蓝 rgb(145 195 255)，浅色用低透明度 #2983bb —— 用 light-dark()
+// 跟随主题的 color-scheme。
 // -----------------------------------------------------------------------------
 .home.posts .summary {
   position: relative;
