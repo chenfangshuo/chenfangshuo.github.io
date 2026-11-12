@@ -1241,17 +1241,27 @@ html.vt-theme::view-transition-new(root) {
     transition: none !important;
   }
 
-  // 代码块展开箭头的 1.5s 无限上下浮动（FixIt 自带）
+  // 代码块展开箭头的 1.5s 无限上下浮动（FixIt 自带）。
+  // ⚠️ 必须补 opacity: 1：主题的基准是 opacity: 0，箭头平时靠 fadeOutDown 关键帧
+  //    把自己显示出来；只写 animation: none 会让它在 reduced 下彻底消失——
+  //    那等于把「点这里展开」这个唯一可见的提示删掉了。
   .single .highlight.code-block .code-expand-btn .fa-angles-down {
     animation: none !important;
+    opacity: 1;
   }
 
-  // 灯箱：遮罩、图片包裹层的过渡压到近似瞬时。
-  // ⚠️ 必须留一个非零时长：lightGallery 的翻页依赖 transitionend，
-  //    写成 0s 时事件不触发，翻页会卡住。1ms 既看不出来也能触发。
+  // 灯箱：遮罩、翻页、缩放全部压到近似瞬时。
+  // ⚠️ 三个坑：
+  //   1) 必须留非零时长 —— lightGallery 的翻页/缩放靠 transitionend 推进，
+  //      写成 0s 事件不触发，会卡住；
+  //   2) 翻页动画作用在 .lg-item 上，只写 .lg-img-wrap 覆盖不到；
+  //   3) 缩放的 .lg-image 在 lightGallery 里本来就是 !important，而且 custom.css
+  //      加载在 lib 之前，同权重会输给它，所以用 :root 把优先级顶上去。
   .lg-backdrop,
+  .lg-outer .lg-item,
   .lg-outer .lg-img-wrap,
-  .lg-outer .lg-image {
+  :root .lg-outer .lg-item.lg-complete.lg-zoomable .lg-image,
+  :root .lg-outer .lg-item.lg-complete.lg-zoomable .lg-dummy-img {
     transition-duration: 1ms !important;
   }
 }
