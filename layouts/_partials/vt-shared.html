@@ -25,6 +25,10 @@
     const CONTENT_LEAD_MS = 120   // 内容比标题落位提前这么多开始
     const root = document.documentElement
 
+    // 窄屏上卡片标题和文章标题的换行数不一样，快照填进目标框会被拉变形。
+    // 960px 以下不做标题形变，退回根交叉淡入（内容也不隐藏）。
+    const titleMotion = window.matchMedia('(min-width: 960px)')
+
     // 跨文档到达（不是刷新）且浏览器支持 pagereveal 时，先藏文章内容。
     // Firefox 正式版有 NavigationActivation 但没有 pagereveal，不能误藏。
     const arrival = (() => {
@@ -39,7 +43,7 @@
         return false
       }
     })()
-    if (arrival) {
+    if (arrival && titleMotion.matches) {
       root.classList.add('vt-title-mode')
       // 标题的 flipInX 入场动画必须在这里就关掉：等 pagereveal 再关，
       // 快照拍到的会是动画初始帧（高度 0 / opacity 0），新标题快照就是空白。
@@ -118,6 +122,8 @@
 
     // 记录最后一次点击的是哪张卡片的文章链接（点标签不算）
     let lastClickedCardSlug = ''
+    // 内容入场结束后，把标题从全彩色过渡回「前白后彩」的定时器
+    let settleTimer = 0
 
     document.addEventListener('click', (event) => {
       lastClickedCardSlug = ''
@@ -137,6 +143,7 @@
       clearNames()
       // 只从首页出发才命名；文章页 / 标签页一律不命名，避免反向形变。
       if (!document.querySelector('.home.posts')) return
+      if (!titleMotion.matches) return
       // 两端能力门槛对称：WebKit 在没有 Navigation API 时仍会给 pageswap 提供 activation。
       if (!window.navigation?.activation || !event.activation) return
       const to = destinationPath(event)
@@ -145,6 +152,7 @@
 
     const nameIncoming = () => {
       clearNames()
+      if (!titleMotion.matches) return false
       if (!window.navigation?.activation) return false
       if (!document.querySelector('.page.single')) return false
       if (sourcePath() !== '/') return false
@@ -163,10 +171,13 @@
       // 每轮开始先重置上一轮可能留下的状态（bfcache 恢复时最常见：
       // vt-reveal 的 animation-fill-mode: both 会一直把 opacity 钉在 1，
       // 新一轮的隐藏/入场就失效了）。
+      clearTimeout(settleTimer)
       root.classList.remove('vt-reveal')
       root.classList.remove('vt-title-live-hide')
       root.classList.remove('vt-title-mode')
       root.classList.remove('vt-solid')
+      root.classList.remove('vt-title-colored')
+      root.classList.remove('vt-title-settled')
 
       // 没有 VT / 减少动效：清名字，页面按普通加载显示。
       if (!event.viewTransition || reduced) {
@@ -198,6 +209,10 @@
         root.classList.remove('vt-title-mode')
         root.classList.remove('vt-solid')
         root.classList.add('vt-reveal')
+        // 落位时先保持全彩色（和飞行快照一致），等内容入场结束后再过渡回渐变
+        root.classList.add('vt-title-colored')
+        clearTimeout(settleTimer)
+        settleTimer = setTimeout(() => root.classList.add('vt-title-settled'), 500)
       }
 
       let timer = 0

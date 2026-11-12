@@ -849,7 +849,11 @@ html.share-wechat-open {
 .page.single .single-title > span {
   color: var(--fi-global-font-color);
 
-  @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  // ⚠️ 必须同时检测 light-dark()：Safari 17.4 / Firefox 119 支持
+  // background-clip: text 但不支持 light-dark()，只检测前者会让渐变的
+  // background-image 解析失败，而 -webkit-text-fill-color 仍是 transparent，
+  // 标题会直接消失（2026-11-12 Codex 复核）。
+  @supports (((-webkit-background-clip: text) or (background-clip: text)) and (color: light-dark(#000, #fff))) {
     background-image: linear-gradient(100deg,
       var(--fi-global-font-color) 0%,
       var(--fi-global-font-color) 55%,
@@ -1037,6 +1041,49 @@ html.vt-solid .page.single:not(.special) .single-title > span {
   color: var(--fi-global-font-color, #e4e9f0) !important;
 }
 
+// live 标题的颜色过渡：落位时保持全彩色，等内容入场结束后再把前 55%
+// 从彩色淡回正文色，后半段继续保留标题渐变的高亮色。
+// 用 @property 注册颜色，background-image 里的 var() 就能逐帧插值。
+@property --vt-title-a {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: #7cc4ff;
+}
+
+@property --vt-title-b {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: #7cc4ff;
+}
+
+// ⚠️ 只作用于屏幕：这两个类在转场结束后会一直保留，如果带进打印，
+//    它们的 !important 透明填充会压过打印兜底，文章标题印不出来
+//    （2026-11-12 Codex 复核）。
+@media screen {
+  html.vt-title-colored .page.single:not(.special) .single-title > span {
+    background-image: linear-gradient(100deg,
+      var(--vt-title-a) 0%,
+      var(--vt-title-a) 55%,
+      var(--vt-title-b) 100%) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    // 落位基色用滤镜输出的灰（saturate(0) + brightness 的结果），
+    // 和飞行快照最后一帧一致，避免落位瞬间颜色跳一下；
+    // 之后再过渡到真正的正文色 + 高亮色。
+    --vt-title-a: light-dark(#232323, #b8b8b8);
+    --vt-title-b: light-dark(#232323, #b8b8b8);
+  }
+
+  // 内容入场结束后，前半段过渡到正文色、后半段过渡到高亮色，
+  // 看起来就是渐变色从原来的灰色上慢慢浮现。
+  html.vt-title-settled .page.single:not(.special) .single-title > span {
+    --vt-title-a: var(--fi-global-font-color);
+    --vt-title-b: light-dark(#2983bb, #7cc4ff);
+    transition: --vt-title-a .5s ease, --vt-title-b .5s ease;
+  }
+}
+
 // 标题飞行：0.32s，与 vt-shared.html 的 TITLE_MS 保持一致。
 ::view-transition-group(vt-title) {
   animation-duration: .32s;
@@ -1056,10 +1103,35 @@ html.vt-solid .page.single:not(.special) .single-title > span {
 }
 
 ::view-transition-old(vt-title) {
-  animation: none;
+  // 飞行过程中把卡片标题的洋红滤镜过渡到正文色，
+  // 落位后由 live 标题的渐变接管。
+  animation: vt-title-tint-dark .32s cubic-bezier(.22, 1, .36, 1) both;
   opacity: 1;
-  // 文本不要拉伸：在 group 的框里等比缩放
-  object-fit: contain;
+  // 用 fill 让快照在落位时正好填满 live 标题的框：
+  // contain 会按快照自己的宽高比留黑边，落位时标题左右宽度会跳一下。
+  object-fit: fill;
+}
+
+html[data-theme-mode='light']::view-transition-old(vt-title) {
+  animation-name: vt-title-tint-light;
+}
+
+@media (prefers-color-scheme: light) {
+  html:not([data-theme-mode='dark'])::view-transition-old(vt-title) {
+    animation-name: vt-title-tint-light;
+  }
+}
+
+@keyframes vt-title-tint-dark {
+  from { filter: none; }
+  // 洋红 → 正文色 #b3bdcb：去饱和后提亮
+  to { filter: saturate(0) brightness(1.6); }
+}
+
+@keyframes vt-title-tint-light {
+  from { filter: none; }
+  // 洋红 → 正文色 #1f2328：去饱和后压暗
+  to { filter: saturate(0) brightness(.3); }
 }
 
 ::view-transition-new(vt-title) {
