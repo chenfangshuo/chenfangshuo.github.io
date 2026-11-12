@@ -1,0 +1,186 @@
+{{- /*
+  跨页共享元素命名（View Transition）。
+
+  为什么必须放在 <head> 里内联：
+  - pagereveal 是"新页面快照前"的事件，可能比 body 末尾的 custom.js 更早触发；
+    放在 custom.js 里会错过它，文章页就写不上 view-transition-name。
+  - 这里只做事件注册和命名，几十行；不引额外请求，也不用等 DOMContentLoaded。
+
+  pageswap：旧页面快照前，文章页命名自己的封面/标题，首页命名最后点击的那张卡片。
+  pagereveal：新页面快照前，只有两端能配对时才命名（避免只有一边有名字的闪动），
+              并在转场结束后清掉名字、去掉 html.vt-shared。
+*/ -}}
+<script>
+  (() => {
+    'use strict'
+
+    const slugFromPath = (pathname) => {
+      const segment = pathname.replace(/\/+$/, '').split('/').filter(Boolean).pop() || 'home'
+      return segment.replace(/[^a-zA-Z0-9_-]/g, '_')
+    }
+
+    const named = new Set()
+
+    const name = (element, value) => {
+      if (!element) return
+      element.style.viewTransitionName = value
+      named.add(element)
+    }
+
+    const clearNames = () => {
+      for (const element of named) element.style.removeProperty('view-transition-name')
+      named.clear()
+    }
+
+    const pathFromUrl = (url) => {
+      try {
+        return url ? new URL(url).pathname : ''
+      } catch {
+        return ''
+      }
+    }
+
+    // 新页面：本次导航的真正来源。
+    // 只信 navigation.activation.from —— bfcache 恢复时 document.referrer 是
+    // "最初进入这个页面时"的旧值，并不等于本次来源（Safari 18.2–26.1 没有
+    // Navigation API，此时两端都退回根转场，不做共享元素，避免单边命名）。
+    const sourcePath = () => {
+      try {
+        const from = window.navigation?.activation?.from
+        return from ? pathFromUrl(from.url) : ''
+      } catch {
+        return ''
+      }
+    }
+
+    // 旧页面：pageswap 的 activation.entry 就是本次要去的目的地。
+    const destinationPath = (event) => {
+      try {
+        return pathFromUrl(event.activation?.entry?.url)
+      } catch {
+        return ''
+      }
+    }
+
+    const nameArticle = () => {
+      const article = document.querySelector('.page.single')
+      if (!article) return false
+      const slug = slugFromPath(location.pathname)
+      // 只做封面：文章页的标题在封面上方、首页卡片的标题在封面下方，
+      // 两端的标题是"反方向"的，动画起来会互相穿过，2026-11-11 起不做标题形变。
+      name(article.querySelector('.featured-image'), `vt-cover-${slug}`)
+      return true
+    }
+
+    const nameCard = (slug) => {
+      if (!slug) return false
+      for (const card of document.querySelectorAll('.home.posts .summary')) {
+        const link = card.querySelector('.single-title a')
+        if (!link) continue
+        let cardSlug
+        try {
+          cardSlug = slugFromPath(new URL(link.href, location.href).pathname)
+        } catch {
+          continue
+        }
+        if (cardSlug !== slug) continue
+        name(card.querySelector('.featured-image-preview'), `vt-cover-${slug}`)
+        return true
+      }
+      return false
+    }
+
+    // 记录最后一次点击的是哪张卡片的文章链接（点标签不算）
+    let lastClickedCardSlug = ''
+
+    document.addEventListener('click', (event) => {
+      lastClickedCardSlug = ''
+      const link = event.target.closest?.('.home.posts .summary a')
+      if (!link) return
+      const card = link.closest('.summary')
+      const articleLink = card?.querySelector('.single-title a')
+      if (!articleLink) return
+      try {
+        const targetPath = new URL(link.href, location.href).pathname
+        const articlePath = new URL(articleLink.href, location.href).pathname
+        if (targetPath === articlePath) lastClickedCardSlug = slugFromPath(articlePath)
+      } catch {}
+    }, true)
+
+    const nameOutgoing = (event) => {
+      // 先清掉 bfcache 里可能残留的旧名字，再按"本次目的地"重建
+      clearNames()
+
+      // 两端能力门槛必须对称：WebKit 在 Navigation API 关闭时仍会给
+      // pageswap 提供 activation，所以不能只检查 event.activation；
+      // 必须同时有 window.navigation.activation，否则出站会单边命名。
+      if (!window.navigation?.activation || !event.activation) return
+
+      const to = destinationPath(event)
+
+      if (document.querySelector('.page.single')) {
+        // 只有回首页才做封面/标题形变；去标签页/另一篇文章不做，
+        // 避免旧页面单边命名、又没有新页面配对。
+        if (to && to !== '/') return
+        nameArticle()
+        return
+      }
+
+      if (document.querySelector('.home.posts')) {
+        // 有目的地就以目的地为准（浏览器前进/后退没有 click 可记）；
+        // 拿不到 activation 时才退回最后点击的那张卡片。
+        nameCard(to ? slugFromPath(to) : lastClickedCardSlug)
+      }
+    }
+
+    const nameIncoming = () => {
+      // 先清掉 bfcache 里可能残留的旧名字，再按"本次真正来源"重建。
+      clearNames()
+
+      // 与 nameOutgoing 对称：没有 NavigationActivation 就退回根转场。
+      if (!window.navigation?.activation) return false
+
+      const from = sourcePath()
+      if (!from) return false
+
+      if (document.querySelector('.page.single')) {
+        // 只处理"从首页点进文章"；从标签页/另一篇文章进来不做共享元素
+        if (from !== '/') return false
+        return nameArticle()
+      }
+
+      if (document.querySelector('.home.posts')) {
+        return nameCard(slugFromPath(from))
+      }
+
+      return false
+    }
+
+    window.addEventListener('pageswap', (event) => {
+      if (!event.viewTransition) return
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+      nameOutgoing(event)
+    })
+
+    window.addEventListener('pagereveal', (event) => {
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+      // 没有 VT（或用户开了减少动效）：不能直接 return，
+      // 要把去程 pageswap 可能留下的名字清掉，否则会污染下一次主题切换。
+      if (!event.viewTransition || reduced) {
+        clearNames()
+        return
+      }
+
+      if (!nameIncoming()) return
+
+      document.documentElement.classList.add('vt-shared')
+      const finished = event.viewTransition.finished || Promise.resolve()
+      finished.catch(() => {}).finally(() => {
+        // 只清名字；vt-shared 留着 —— 转场结束后再放开 flipInX 会让标题
+        // 从头再翻一次，反而像 bug。这个页面本次加载不需要入场动画了。
+        clearNames()
+      })
+    })
+  })()
+</script>

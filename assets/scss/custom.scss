@@ -251,6 +251,19 @@ $home-media-radius: 1rem;
     z-index: 1; // 封面 / 正文 / 页脚都盖在光斑之上
   }
 
+  // 光斑只允许出现在封面图下方：wrapper 顶边由 JS 对齐到封面底边，
+  // overflow:hidden 把向上溢出的光裁掉，图片（含底部 mask 渐隐）不会被染色。
+  .card-glow-mask {
+    position: absolute;
+    top: 0; // JS 会替换成封面底边
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
   .card-glow {
     position: absolute;
     top: 0;
@@ -273,8 +286,8 @@ $home-media-radius: 1rem;
   .card-glow--main {
     --glow-size: 30rem;
     background: radial-gradient(circle closest-side,
-      light-dark(rgb(41 131 187 / .06), rgb(0 114 255 / .12)) 0%,
-      light-dark(rgb(41 131 187 / .025), rgb(0 114 255 / .05)) 50%,
+      light-dark(rgb(41 131 187 / .06), rgb(145 195 255 / .11)) 0%,
+      light-dark(rgb(41 131 187 / .025), rgb(125 180 255 / .045)) 50%,
       transparent 100%);
   }
 
@@ -282,7 +295,7 @@ $home-media-radius: 1rem;
   .card-glow--trail {
     --glow-size: 45rem;
     background: radial-gradient(circle closest-side,
-      light-dark(rgb(41 131 187 / .02), rgb(0 114 255 / .04)) 0%,
+      light-dark(rgb(41 131 187 / .02), rgb(125 180 255 / .035)) 0%,
       transparent 100%);
   }
 
@@ -292,6 +305,23 @@ $home-media-radius: 1rem;
     .card-glow {
       display: none;
     }
+  }
+}
+
+// 浅色模式下首页封面的底部渐隐：主题默认到 100% 还留 40% 不透明度，
+// 深色封面在浅色卡片上会留下一条灰边。这里把渐隐拉长并收到底（透明），
+// 让封面真正化进卡片底色。只作用于首页卡片，不影响文章封面。
+$home-cover-fade: linear-gradient(180deg, #000 0%, #000 52%, rgba(0, 0, 0, .5) 80%, transparent 100%);
+
+:root[data-theme-mode='light'] .home.posts .summary .featured-image-preview {
+  -webkit-mask-image: $home-cover-fade;
+  mask-image: $home-cover-fade;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme-mode='dark']) .home.posts .summary .featured-image-preview {
+    -webkit-mask-image: $home-cover-fade;
+    mask-image: $home-cover-fade;
   }
 }
 
@@ -766,6 +796,255 @@ html.share-wechat-open {
   .home.posts .home-profile::after {
     animation: none;
     transition: none;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 11. 标题 / 链接微交互（2026-11-11）
+//
+// 只做"可交互"的暗示，不改主题的排版与配色：
+//   - 正文链接下划线从左滑入（background-size 0→100%，不引起重排）
+//   - 标题锚点轻微横向滑入（主题已有 .heading-mark，只补位移）
+//   - 回到顶部 / 主题切换 / 菜单按钮按下缩到 0.94
+//   - 正文链接与固定按钮的 :focus-visible 用主题链接色
+//   - 文章大标题加非常轻的渐变，只作用于标题文字 <span>，不碰 repost 图标
+// reduced-motion 下下划线与颜色保留，位移/缩放全部取消。
+// -----------------------------------------------------------------------------
+.page.single .content {
+  a:not(.heading-mark):not(.anchor):not(:has(> img)) {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    background-size: 0% 1px;
+    transition: background-size .3s cubic-bezier(.4, 0, .2, 1), color .25s ease;
+
+    &:hover,
+    &:focus-visible {
+      background-size: 100% 1px;
+    }
+  }
+
+  .heading-mark {
+    translate: -4px 0;
+    transition: opacity .2s ease, translate .2s ease;
+  }
+
+  .heading-element:hover .heading-mark,
+  .heading-element:target .heading-mark {
+    translate: 0 0;
+  }
+}
+
+// 文章大标题的轻微渐变：只在支持 background-clip: text 的浏览器里生效，
+// 不支持时保留普通文字色，不会变成透明。
+.page.single .single-title > span {
+  color: var(--fi-global-font-color);
+
+  @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+    background-image: linear-gradient(100deg,
+      var(--fi-global-font-color) 0%,
+      var(--fi-global-font-color) 55%,
+      light-dark(#2983bb, #7cc4ff) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+.fixed-button,
+.theme-switch,
+.menu-toggle {
+  transition: transform .15s ease;
+
+  &:active {
+    transform: scale(.94);
+  }
+}
+
+// .fixed-button 原本只有 color 过渡，别被上面的 transform 过渡整条覆盖掉
+.fixed-button {
+  transition: color .4s ease, transform .15s ease;
+}
+
+.page.single .content a:focus-visible,
+.page.single .content button:focus-visible,
+.fixed-button:focus-visible {
+  outline: 2px solid var(--fi-global-link-hover-color);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page.single .content a:not(.heading-mark):not(.anchor):not(:has(> img)) {
+    transition: none;
+  }
+
+  .page.single .content .heading-mark {
+    translate: 0 0;
+    transition: none;
+  }
+
+  .fixed-button,
+  .theme-switch,
+  .menu-toggle {
+    transition: none;
+
+    &:active { transform: none; }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 12. 首页卡片边缘光晕（2026-11-11）
+//
+// 卡片 hover 时在内侧亮起一圈 1px 的渐变边。用 mask 把伪元素挖空成边框，
+// 不改变卡片自身 border，避免和 rc.2 的 border-color 过渡打架。
+// 光斑仍然在图片之下；这一圈只是边缘的一层"被点亮"的暗示。
+// -----------------------------------------------------------------------------
+// 旧浏览器不支持 mask-composite 时整条跳过，否则渐变会铺满整张卡片而不是只留一圈边
+@supports ((-webkit-mask-composite: xor) or (mask-composite: exclude)) {
+  .home.posts .summary::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    padding: 1px;
+    border-radius: inherit;
+    pointer-events: none;
+    background: conic-gradient(from 210deg at 50% 50%,
+      transparent 0deg,
+      transparent 200deg,
+      light-dark(rgba(41, 131, 187, .55), rgba(0, 114, 255, .65)) 260deg,
+      light-dark(rgba(124, 196, 255, .85), rgba(150, 210, 255, .85)) 310deg,
+      transparent 360deg);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity .35s ease;
+  }
+
+  .home.posts .summary:hover::after {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home.posts .summary::after { transition: none; }
+}
+
+// -----------------------------------------------------------------------------
+// 13. 滚动进场（assets/js/custom.js 的 initScrollReveal）
+//
+// 只有 JS 在初始化时给"首屏之外"的目标加 .reveal-target，首屏元素永远不会
+// 半透明；进入视口后加 .is-revealed 播一次，之后不再变化。
+// reduced-motion 下 JS 直接不启动，CSS 这层只是兜底。
+// -----------------------------------------------------------------------------
+.reveal-target {
+  opacity: 0;
+  transform: translateY(12px);
+  // 带上 border-color：.summary 原本用它做 hover 过渡，别被这里整条覆盖
+  transition: opacity .5s ease,
+              transform .5s cubic-bezier(.22, 1, .36, 1),
+              border-color .2s ease;
+}
+
+.reveal-target.is-revealed {
+  opacity: 1;
+  transform: none;
+}
+
+// 主题给 `.home.posts .summary` 的 transition 比 `.reveal-target` 更具体，
+// 不补这一条的话卡片进场的 opacity/transform 会直接跳变（border-color 也会丢）。
+.home.posts .summary.reveal-target {
+  transition: opacity .5s ease,
+              transform .5s cubic-bezier(.22, 1, .36, 1),
+              border-color .2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-target,
+  .reveal-target.is-revealed {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .home.posts .summary.reveal-target { transition: none; }
+}
+
+// -----------------------------------------------------------------------------
+// 14. View Transition（2026-11-11）
+//
+//  a) 跨页根交叉淡入：@view-transition + 0.28s 的旧/新根动画。
+//     顶栏不单独命名 —— 命名元素会从根快照里独立出来，反而会干扰
+//     同文档的明暗切换圆形扩散；让它跟着根一起淡更稳。
+//  b) 首页卡片封面/标题 ↔ 文章页封面/标题的共享元素形变：
+//     名字由 layouts/_partials/vt-shared.html（head 内联）在 pageswap / pagereveal
+//     里动态写到 style 上，转场结束后清除。
+//  c) 明暗切换的圆形扩散：只在本轮切换期间加 html.vt-theme，
+//     关掉默认交叉淡入，由 JS 对 ::view-transition-new(root) 做 clip-path 动画。
+//
+// 旧浏览器不认识 @view-transition / view-transition-name，只是没有动画，
+// 不会报错，页面照常切换。
+// -----------------------------------------------------------------------------
+@view-transition {
+  navigation: auto;
+}
+
+// 减少动效：跨页转场也关掉（JS 侧同样不再写共享元素名字）
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: .28s;
+  animation-timing-function: cubic-bezier(.4, 0, .2, 1);
+}
+
+::view-transition-group(*) {
+  animation-duration: .3s;
+  animation-timing-function: cubic-bezier(.4, 0, .2, 1);
+}
+
+// 跨页共享元素进入的文章页：关掉标题自带的 flipInX，否则快照可能拍在动画中间。
+// 这个类在转场结束后也保留（见 vt-shared.html），避免放开后标题又从头翻一次。
+html.vt-shared .page.single .single-title,
+html.vt-shared .page.single .single-subtitle {
+  animation: none !important;
+}
+
+// 明暗切换：默认的根动画关掉，改由 JS 对 new root 做圆形 clip-path
+html.vt-theme::view-transition-old(root),
+html.vt-theme::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+html.vt-theme::view-transition-new(root) {
+  z-index: 1;
+}
+
+// 打印：进场目标必须全部可见（否则没滚到的图片/标题会印成空白）；
+// 标题渐变回退成普通文字色；装饰性光效不打印。
+@media print {
+  .reveal-target,
+  .reveal-target.is-revealed {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .page.single .single-title > span {
+    background: none !important;
+    -webkit-text-fill-color: currentColor !important;
+    color: var(--fi-global-font-color) !important;
+  }
+
+  .home.posts .summary::after,
+  .card-glow {
+    display: none !important;
   }
 }
 

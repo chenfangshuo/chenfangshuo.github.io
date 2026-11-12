@@ -51,6 +51,15 @@ date_format = "2006-01-02"
 # rc.2 新增：文章 TOC 侧栏 / 移动抽屉里的关注按钮。留空即关闭；显式写出防止默认值变化。
 follow = ""
 
+# 悬停预取：主题已 vendored（assets/lib/instant-page，非 CDN）。
+# 鼠标在站内链接上停留约 65ms 后预取下一页，点下去几乎立刻出现。
+instant_page = true
+
+# 右下角回到顶部按钮：外面套一圈与阅读进度同步的进度环。
+# enable 沿用主题默认的 true，这里只开 scrollpercent。
+# 用 inline table 是为了不打断 [params] 后面的裸键（如 fingerprint）。
+back_to_top = { enable = true, scrollpercent = true }
+
 # 文章图片灯箱（lightGallery）按文章开启：front matter 写 `lightgallery: "force"`。
 # **不要**把 lightgallery 写进 [params]：那会让每一页（含首页、关于、友链、搜索）
 # 都加载 5.3KB 渲染阻塞 CSS + 20.4KB JS（gzip 合计约 25.8KB），而没有正文图的页面用不上。
@@ -128,6 +137,9 @@ header_background_color_dark = "#121821"
 code_header_background_color_dark = "#212a35"
 # 圆角 6px -> 10px：封面/代码/表格/图片统一柔和（custom.scss 里用的就是这个变量）
 global_border_radius = "10px"
+# 选中色与卡片光斑/链接用同一支蓝，避免三套蓝色打架
+selection_color = "rgba(0, 114, 255, 0.22)"
+selection_color_dark = "rgba(0, 114, 255, 0.38)"
 
 # --- 代码块 ---------------------------------------------------------------------
 # mac 模式 = FixIt 内置的 macOS 风格面板，替代旧站自定义的 macpanel.css
@@ -195,7 +207,7 @@ code = ""   # 曾为 "forsure"
 # seo-extra = og:image:alt / 宽高 / twitter:image:alt（主题 head 不输出这些）
 # share-wechat = 文章页分享按钮旁的微信扫码入口（见 layouts/_partials/share-wechat.html）
 [params.custom_partials]
-head = ["goatcounter", "favicon", "seo-extra", "image-skeleton-noscript"]
+head = ["goatcounter", "favicon", "seo-extra", "image-skeleton-noscript", "vt-shared"]
 footer = ["powered"]
 post_footer_after = ["share-wechat"]
 
