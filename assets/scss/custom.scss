@@ -781,16 +781,19 @@ html.share-wechat-open {
   }
 }
 
+// 只有横向扫光，**不再叠 filter: brightness() 的明暗呼吸**（2026-11-12 实测）。
+// brightness 会让浏览器每帧重绘整块占位区域，而 background-position 的扫光至少还有
+// 部分加速路径；去掉亮度后 Paint 时间几乎不变，Main 每 3 秒稳定降 64/70/36ms
+// （卡片 / 正文 / Hero）。观感差别只有"不再轻微明暗起伏"，光条照常扫过。
+// 别把它加回来当成"更好看"——那是拿主线程换一点几乎看不出的呼吸感。
 @keyframes image-skeleton-breathe {
   0%,
   100% {
     background-position: 130% 0;
-    filter: brightness(.92);
   }
 
   50% {
     background-position: -30% 0;
-    filter: brightness(1.08);
   }
 }
 
@@ -1225,6 +1228,39 @@ html.vt-theme::view-transition-new(root) {
   .card-glow {
     display: none !important;
   }
+}
+
+// 减少动效：补掉之前漏掉的几处（2026-11-12 审计）。
+// ⚠️ 这些必须放在 prefers-reduced-motion 里，别顺手塞进上面的 @media print。
+@media (prefers-reduced-motion: reduce) {
+  // 页脚的两颗心：保留 hover 的终态（变红/变大），只去掉过渡。
+  // 真正贵的是 font-size 过渡——它逐帧触发布局；color 过渡本身很便宜。
+  // 注意：没有指针悬停时这两条 transition 不会运行，静止时零成本。
+  .site-time i,
+  .powered-heart {
+    transition: none !important;
+  }
+
+  // 代码块展开箭头的 1.5s 无限上下浮动（FixIt 自带）
+  .single .highlight.code-block .code-expand-btn .fa-angles-down {
+    animation: none !important;
+  }
+
+  // 灯箱：遮罩、图片包裹层的过渡压到近似瞬时。
+  // ⚠️ 必须留一个非零时长：lightGallery 的翻页依赖 transitionend，
+  //    写成 0s 时事件不触发，翻页会卡住。1ms 既看不出来也能触发。
+  .lg-backdrop,
+  .lg-outer .lg-img-wrap,
+  .lg-outer .lg-image {
+    transition-duration: 1ms !important;
+  }
+}
+
+// 代码块展开箭头的无限浮动：出视口就暂停（custom.js 用 IntersectionObserver 切类）。
+// 不暂停的话它在整篇文章里一直跑，实测 23.9ms Main/s + 8.9ms Style/s，
+// 而屏幕外根本看不见。放视口外 200px 才开始"暂停"，避免边界抖动。
+.single .highlight.code-block .code-expand-btn .fa-angles-down.code-arrow-paused {
+  animation-play-state: paused;
 }
 
 /// =============================================================================

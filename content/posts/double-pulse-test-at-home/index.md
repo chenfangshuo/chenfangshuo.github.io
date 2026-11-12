@@ -258,7 +258,12 @@ python dpt_analyzer.py --window manual --pre-ns 80 --post-ns 200 --no-show
 
 #### 4. 完整脚本
 
-{{% include dpt_analyzer.py python %}}
+脚本 1,506 行、67 KB，**不内联在正文里**——整篇内联会让本页多出约 1.6 万个 DOM 节点，
+首屏渲染多等 1.7 秒左右。
+
+📄 **[下载 dpt_analyzer.py](dpt_analyzer.py)**（67 KB，MIT 许可）
+
+用法见上一节；`python dpt_analyzer.py --help` 可看全部参数。
 
 ### 最后分享一些遇到的坑
 

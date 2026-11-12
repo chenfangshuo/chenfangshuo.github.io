@@ -46,6 +46,14 @@ const initHitokoto = async () => {
     // 静默回退到固定文案
   }
 
+  // 减少动效：直接整句写入，不逐字打字。
+  // 打字机每 70ms 改一次 textContent，会连带样式/布局/绘制；一次短句实测 79.75ms
+  // 主线程（逐字）vs 49.46ms（整句）。这句只在首页出现一次，但没必要让偏好它的用户看。
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    el.textContent = text
+    return
+  }
+
   // 简单打字机，逐字写入
   let i = 0
   el.textContent = ''
@@ -443,6 +451,33 @@ const initThemeReveal = () => {
   }
 }
 
+/**
+ * 8. 代码块展开箭头：出视口暂停
+ *
+ *    FixIt 给折叠代码块底部加了一个 1.5s infinite 的上下浮动箭头，即使整块在视口外
+ *    也一直在跑（实测 23.9ms Main/s + 8.9ms Style/s）。这里只切一个 class，
+ *    动画本身、样式和观感都不动；减少动效时由 CSS 直接停掉，所以那种情况下不启动。
+ *
+ *    rootMargin 取正值：离开视口 200px 之后才暂停，避免贴着边缘时反复切换。
+ */
+const initCodeArrowAnimation = () => {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  if (!('IntersectionObserver' in window)) return
+
+  const arrows = document.querySelectorAll(
+    '.single .highlight.code-block .code-expand-btn .fa-angles-down',
+  )
+  if (!arrows.length) return
+
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      entry.target.classList.toggle('code-arrow-paused', !entry.isIntersecting)
+    }
+  }, { rootMargin: '200px 0px' })
+
+  for (const arrow of arrows) observer.observe(arrow)
+}
+
 const init = () => {
   // ⚠️ 顺序有意为之：hitokoto 先启动。两者现在在同一份 bundle 里，而 initHitokoto 是
   //    async（在第一个 await 处就返回，后续不受影响），所以万一下面的 initSnow() 同步抛错，
@@ -452,6 +487,7 @@ const init = () => {
   initHeroSkeleton()
   initCardSpotlight()
   initScrollReveal()
+  initCodeArrowAnimation()
   initThemeReveal()
   initHitokoto()
   initSnow()

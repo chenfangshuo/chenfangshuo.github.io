@@ -123,7 +123,9 @@ Windows 的 HDR 是个**全局开关**：开着的时候桌面、浏览器、SDR
 
 ### 完整脚本
 
-{{% include auto-hdr.lua lua %}}
+脚本 863 行、44 KB，**不内联在正文里**——整篇内联会让本页多出 5 千多个 DOM 节点，首屏渲染明显变慢。
+
+📄 **[下载 auto-hdr.lua](auto-hdr.lua)**（44 KB，MIT 许可）
 
 也可以在 GitHub 上取：[chenfangshuo/auto-hdr](https://github.com/chenfangshuo/auto-hdr)。脚本是 **MIT 许可**的，想怎么改、想塞进自己的配置里都行，不用来问。
 
