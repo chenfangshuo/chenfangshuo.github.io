@@ -422,9 +422,15 @@ $home-cover-fade: linear-gradient(180deg, #000 0%, #000 52%, rgba(0, 0, 0, .5) 8
     transition: opacity .5s ease;
   }
 
+  // 与第 10 节同一个坑：淡出期间让 shimmer 继续跑，淡出结束后 JS 再加
+  // .is-hero-done 停掉动画（否则光条会先冻住 0.5s 再消失）。
   &.is-hero-loaded::after {
-    animation: none;
     opacity: 0;
+  }
+
+  &.is-hero-done::after {
+    animation: none;
+    visibility: hidden;
   }
 
   // 头像：手机 96px（主题默认 6rem），≥680px 换 128px —— 见下面媒体查询。
@@ -724,7 +730,9 @@ html.share-wechat-open {
 //       慢网下浏览器会从上到下渐进绘制图片，如果骨架在下面，未加载完的图片会
 //       从骨架上面露出来。盖在上面才能保证加载期间只看到骨架。
 //     - 占位是慢速呼吸的 shimmer：3.8s ease-in-out，高光扫过 + 轻微明暗。
-//     - 图片加载完成后 .is-loaded：骨架 0.45s 淡出，露出下面已经完整加载的图片。
+//     - 图片加载完成后分两步：.is-loaded 只负责 0.45s 淡出（shimmer 继续跑），
+//       淡出结束 JS 再加 .is-skeleton-done 停动画 + visibility: hidden。
+//       合并成一步会在淡出的半秒里把 shimmer 冻在当前帧（2026-11-12 反馈的问题）。
 //     - 颜色用 light-dark() 跟随明暗主题；不支持的浏览器回退到深色。
 //     - 没有 JS 时由 image-skeleton-noscript.html 直接隐藏骨架，图片正常显示。
 // -----------------------------------------------------------------------------
@@ -758,9 +766,18 @@ html.share-wechat-open {
     height: auto;
   }
 
+  // 加载完成：先只淡出，**不要**在这里写 animation: none。
+  // 一写下去 shimmer 会立刻停在当前帧，而骨架还要 0.45s 才透明 ——
+  // 那半秒看到的就是"光条卡住"，2026-11-12 用户反馈的就是这个。
   &.is-loaded::before {
-    animation: none;
     opacity: 0;
+  }
+
+  // 淡出结束后由 custom.js 加这个类，才真正停掉动画并退出绘制。
+  // 只靠 CSS 没法"过渡结束后再停"，所以分成两步。
+  &.is-skeleton-done::before {
+    animation: none;
+    visibility: hidden;
   }
 }
 
@@ -966,14 +983,16 @@ html.share-wechat-open {
 }
 
 // -----------------------------------------------------------------------------
-// 14. View Transition（2026-11-11）
+// 14. View Transition（2026-11-11，2026-11-12 调整）
 //
-//  a) 跨页根交叉淡入：@view-transition + 0.28s 的旧/新根动画。
+//  a) 跨页根交叉淡入：@view-transition，旧页 .12s 退场、新页 .2s 淡入。
 //     顶栏不单独命名 —— 命名元素会从根快照里独立出来，反而会干扰
 //     同文档的明暗切换圆形扩散；让它跟着根一起淡更稳。
-//  b) 首页卡片封面 ↔ 文章页封面的共享元素形变（标题不做，两端方向相反）：
+//  b) 首页卡片标题 → 文章标题的共享元素（**单向**）。
 //     名字由 layouts/_partials/vt-shared.html（head 内联）在 pageswap / pagereveal
-//     里动态写到 style 上，转场结束后清除。
+//     里动态写到 style 上，固定叫 vt-title，转场结束后清除。
+//     转场期间文章标题以外的内容先隐藏（html.vt-title-mode），标题落位后再入场
+//     （html.vt-reveal）。反向不做，避免从视口外飞回来。
 //  c) 明暗切换的圆形扩散：只在本轮切换期间加 html.vt-theme，
 //     关掉默认交叉淡入，由 JS 对 ::view-transition-new(root) 做 clip-path 动画。
 //
@@ -989,15 +1008,111 @@ html.share-wechat-open {
   @view-transition { navigation: none; }
 }
 
-::view-transition-old(root),
+// 旧根稍快退场、新根稍慢淡入。
+// ⚠️ 不要改成"旧根立刻隐藏、新根立刻显示"：命名元素在根快照里是个洞，
+//    新根一显示就会透过洞看到底下的实时封面，和共享元素的快照形成双层重影
+//    （2026-11-12 实测）。旧根多留一会儿正好把实时页面盖住。
+::view-transition-old(root) {
+  animation-duration: .12s;
+  animation-timing-function: cubic-bezier(.4, 0, .2, 1);
+}
+
 ::view-transition-new(root) {
-  animation-duration: .28s;
+  animation-duration: .2s;
   animation-timing-function: cubic-bezier(.4, 0, .2, 1);
 }
 
 ::view-transition-group(*) {
   animation-duration: .3s;
   animation-timing-function: cubic-bezier(.4, 0, .2, 1);
+}
+
+// 文章标题的渐变字用 background-clip: text + 透明填充，Chrome 的快照会把文字
+// 拍成透明（2026-11-12 实测）。转场期间切成实色，拍完再恢复渐变。
+html.vt-solid .page.single:not(.special) .single-title > span {
+  background: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  -webkit-text-fill-color: currentColor !important;
+  color: var(--fi-global-font-color, #e4e9f0) !important;
+}
+
+// 标题飞行：0.32s，与 vt-shared.html 的 TITLE_MS 保持一致。
+::view-transition-group(vt-title) {
+  animation-duration: .32s;
+  animation-timing-function: cubic-bezier(.22, 1, .36, 1);
+}
+
+// ⚠️ 只保留新标题快照、旧快照直接隐藏。
+// 默认是旧/新快照交叉淡入，飞行中途两张都不透明，看起来就是
+// "标题变淡到看不见、然后突然出现"（2026-11-12 反馈）。
+// 新快照是文章大标题的高分辨率版本，缩小填进 group 的框，全程可见。
+::view-transition-old(vt-title),
+::view-transition-new(vt-title) {
+  // 和封面同一个坑：快照默认 width:100%; height:auto，不写 100% 就不会跟着
+  // group 的框缩放，object-fit 等于没生效（实测 group 40px 高时新快照 57px）。
+  width: 100%;
+  height: 100%;
+}
+
+::view-transition-old(vt-title) {
+  animation: none;
+  opacity: 1;
+  // 文本不要拉伸：在 group 的框里等比缩放
+  object-fit: contain;
+}
+
+::view-transition-new(vt-title) {
+  // 实测 Chrome 拍文章标题快照是空白的（渐变字/入场动画都排除了），
+  // 所以飞行只用旧标题（卡片标题）快照；落位后由 live 标题接管。
+  animation: none;
+  opacity: 0;
+}
+
+// 转场期间：文章标题以外的直接子元素先隐藏（保留布局，避免滚动高度跳）。
+// 侧栏目录是独立的一份，单独藏。
+html.vt-title-mode .page.single:not(.special) > :not(.header) {
+  opacity: 0;
+}
+
+// 侧栏目录带主题的 animate__fadeIn，animation 会压过普通 opacity 声明，
+// 必须显式停掉动画并 !important（2026-11-12 实测）。
+html.vt-title-mode.vt-shared .toc {
+  animation: none !important;
+  opacity: 0 !important;
+}
+
+// 标题的 flipInX 必须在第一次绘制前就关掉，否则快照会拍到动画初始帧（高度 0）。
+html.vt-title-mode .page.single:not(.special) .single-title,
+html.vt-title-mode .page.single:not(.special) .single-subtitle {
+  animation: none !important;
+}
+
+// 快照拍完后隐藏实时标题，飞行中只看到共享元素快照，不会和实时标题叠成两份。
+// 只藏文章页的标题；首页卡片的 .single-title 不能受影响（返回首页时会误藏）
+html.vt-title-live-hide .page.single:not(.special) .single-title {
+  visibility: hidden;
+}
+
+// 标题落位前后：内容依次淡入上移。
+// reveal 会比标题落位提前 CONTENT_LEAD_MS 触发（见 vt-shared.html），
+// 这样转场覆盖层撤掉时内容已经在入场，而不是从 0 开始等。
+html.vt-reveal .page.single:not(.special) > :not(.header) {
+  animation: vt-content-in .36s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+html.vt-reveal .toc {
+  animation: vt-content-in .36s cubic-bezier(.22, 1, .36, 1) both !important;
+}
+
+html.vt-reveal .page.single > .post-meta { animation-delay: 0s; }
+html.vt-reveal .page.single > .featured-image { animation-delay: .04s; }
+html.vt-reveal .page.single > .details { animation-delay: .06s; }
+html.vt-reveal .page.single > .content { animation-delay: .1s; }
+
+@keyframes vt-content-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
 }
 
 // 跨页共享元素进入的文章页：关掉标题自带的 flipInX，否则快照可能拍在动画中间。

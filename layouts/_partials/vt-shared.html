@@ -1,18 +1,51 @@
 {{- /*
-  跨页共享元素命名（View Transition）。
+  跨页标题共享（View Transition）—— 方案 3：标题先飞到位，内容再入场。
 
-  为什么必须放在 <head> 里内联：
-  - pagereveal 是"新页面快照前"的事件，可能比 body 末尾的 custom.js 更早触发；
-    放在 custom.js 里会错过它，文章页就写不上 view-transition-name。
-  - 这里只做事件注册和命名，几十行；不引额外请求，也不用等 DOMContentLoaded。
+  只做 **首页卡片标题 → 文章标题** 一个方向：
+    pageswap  旧页面是首页、目的地是某篇文章 → 命名那张卡片的标题
+    pagereveal 新页面是文章、来源是首页 → 命名文章标题
 
-  pageswap：旧页面快照前，文章页命名自己的封面，首页命名最后点击的那张卡片。
-  pagereveal：新页面快照前，只有两端能配对时才命名（避免只有一边有名字的闪动），
-              并在转场结束后清掉名字、去掉 html.vt-shared。
+  时间线：
+    - head 解析阶段给 <html> 加 vt-title-mode，文章标题以外的直接子元素先隐藏
+    - 转场 ready（快照已拍）→ 藏掉实时标题，只让共享元素快照飞行；
+      同时提前 CONTENT_LEAD_MS 启动内容入场（在快照覆盖层下面跑）
+    - finished → 撤掉所有隐藏类，标题和内容都在最终位置
+
+  为什么标题不能淡入淡出：
+    旧标题（卡片里的小标题）和新标题（文章大标题）是两个快照，默认会交叉淡入；
+    飞行中途两张都不透明，看起来就是"变淡到看不见、再突然出现"。
+    这里只保留新标题快照（高分辨率），旧快照直接隐藏，全程可见。
 */ -}}
 <script>
   (() => {
     'use strict'
+
+    const NAME = 'vt-title'
+    const TITLE_MS = 320          // 与 ::view-transition-group(vt-title) 的时长一致
+    const CONTENT_LEAD_MS = 120   // 内容比标题落位提前这么多开始
+    const root = document.documentElement
+
+    // 跨文档到达（不是刷新）且浏览器支持 pagereveal 时，先藏文章内容。
+    // Firefox 正式版有 NavigationActivation 但没有 pagereveal，不能误藏。
+    const arrival = (() => {
+      try {
+        const supportsReveal = 'onpagereveal' in window || typeof PageRevealEvent !== 'undefined'
+        if (!supportsReveal) return false
+        const a = window.navigation?.activation
+        const from = a?.from
+        return !!a && a.navigationType !== 'reload' && !!from
+          && new URL(from.url).origin === location.origin
+      } catch {
+        return false
+      }
+    })()
+    if (arrival) {
+      root.classList.add('vt-title-mode')
+      // 标题的 flipInX 入场动画必须在这里就关掉：等 pagereveal 再关，
+      // 快照拍到的会是动画初始帧（高度 0 / opacity 0），新标题快照就是空白。
+      // 渐变字也要提前切成实色，否则快照里文字是透明的。
+      root.classList.add('vt-solid')
+    }
 
     const slugFromPath = (pathname) => {
       const segment = pathname.replace(/\/+$/, '').split('/').filter(Boolean).pop() || 'home'
@@ -21,10 +54,11 @@
 
     const named = new Set()
 
-    const name = (element, value) => {
-      if (!element) return
-      element.style.viewTransitionName = value
+    const name = (element) => {
+      if (!element) return false
+      element.style.viewTransitionName = NAME
       named.add(element)
+      return true
     }
 
     const clearNames = () => {
@@ -40,10 +74,7 @@
       }
     }
 
-    // 新页面：本次导航的真正来源。
-    // 只信 navigation.activation.from —— bfcache 恢复时 document.referrer 是
-    // "最初进入这个页面时"的旧值，并不等于本次来源（Safari 18.2–26.1 没有
-    // Navigation API，此时两端都退回根转场，不做共享元素，避免单边命名）。
+    // 新页面：本次导航的真正来源。bfcache 恢复时 document.referrer 是不可靠的旧值。
     const sourcePath = () => {
       try {
         const from = window.navigation?.activation?.from
@@ -53,7 +84,7 @@
       }
     }
 
-    // 旧页面：pageswap 的 activation.entry 就是本次要去的目的地。
+    // 旧页面：pageswap 的 activation.entry 就是本次目的地。
     const destinationPath = (event) => {
       try {
         return pathFromUrl(event.activation?.entry?.url)
@@ -65,11 +96,7 @@
     const nameArticle = () => {
       const article = document.querySelector('.page.single')
       if (!article) return false
-      const slug = slugFromPath(location.pathname)
-      // 只做封面：文章页的标题在封面上方、首页卡片的标题在封面下方，
-      // 两端的标题是"反方向"的，动画起来会互相穿过，2026-11-11 起不做标题形变。
-      name(article.querySelector('.featured-image'), `vt-cover-${slug}`)
-      return true
+      return name(article.querySelector('.single-title > span'))
     }
 
     const nameCard = (slug) => {
@@ -84,8 +111,7 @@
           continue
         }
         if (cardSlug !== slug) continue
-        name(card.querySelector('.featured-image-preview'), `vt-cover-${slug}`)
-        return true
+        return name(card.querySelector('.single-title a'))
       }
       return false
     }
@@ -108,52 +134,21 @@
     }, true)
 
     const nameOutgoing = (event) => {
-      // 先清掉 bfcache 里可能残留的旧名字，再按"本次目的地"重建
       clearNames()
-
-      // 两端能力门槛必须对称：WebKit 在 Navigation API 关闭时仍会给
-      // pageswap 提供 activation，所以不能只检查 event.activation；
-      // 必须同时有 window.navigation.activation，否则出站会单边命名。
+      // 只从首页出发才命名；文章页 / 标签页一律不命名，避免反向形变。
+      if (!document.querySelector('.home.posts')) return
+      // 两端能力门槛对称：WebKit 在没有 Navigation API 时仍会给 pageswap 提供 activation。
       if (!window.navigation?.activation || !event.activation) return
-
       const to = destinationPath(event)
-
-      if (document.querySelector('.page.single')) {
-        // 只有回首页才做封面形变；去标签页/另一篇文章不做，
-        // 避免旧页面单边命名、又没有新页面配对。
-        if (to && to !== '/') return
-        nameArticle()
-        return
-      }
-
-      if (document.querySelector('.home.posts')) {
-        // 有目的地就以目的地为准（浏览器前进/后退没有 click 可记）；
-        // 拿不到 activation 时才退回最后点击的那张卡片。
-        nameCard(to ? slugFromPath(to) : lastClickedCardSlug)
-      }
+      nameCard(to ? slugFromPath(to) : lastClickedCardSlug)
     }
 
     const nameIncoming = () => {
-      // 先清掉 bfcache 里可能残留的旧名字，再按"本次真正来源"重建。
       clearNames()
-
-      // 与 nameOutgoing 对称：没有 NavigationActivation 就退回根转场。
       if (!window.navigation?.activation) return false
-
-      const from = sourcePath()
-      if (!from) return false
-
-      if (document.querySelector('.page.single')) {
-        // 只处理"从首页点进文章"；从标签页/另一篇文章进来不做共享元素
-        if (from !== '/') return false
-        return nameArticle()
-      }
-
-      if (document.querySelector('.home.posts')) {
-        return nameCard(slugFromPath(from))
-      }
-
-      return false
+      if (!document.querySelector('.page.single')) return false
+      if (sourcePath() !== '/') return false
+      return nameArticle()
     }
 
     window.addEventListener('pageswap', (event) => {
@@ -165,22 +160,68 @@
     window.addEventListener('pagereveal', (event) => {
       const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-      // 没有 VT（或用户开了减少动效）：不能直接 return，
-      // 要把去程 pageswap 可能留下的名字清掉，否则会污染下一次主题切换。
+      // 每轮开始先重置上一轮可能留下的状态（bfcache 恢复时最常见：
+      // vt-reveal 的 animation-fill-mode: both 会一直把 opacity 钉在 1，
+      // 新一轮的隐藏/入场就失效了）。
+      root.classList.remove('vt-reveal')
+      root.classList.remove('vt-title-live-hide')
+      root.classList.remove('vt-title-mode')
+      root.classList.remove('vt-solid')
+
+      // 没有 VT / 减少动效：清名字，页面按普通加载显示。
       if (!event.viewTransition || reduced) {
         clearNames()
         return
       }
 
-      if (!nameIncoming()) return
-
-      document.documentElement.classList.add('vt-shared')
-      const finished = event.viewTransition.finished || Promise.resolve()
-      finished.catch(() => {}).finally(() => {
-        // 只清名字；vt-shared 留着 —— 转场结束后再放开 flipInX 会让标题
-        // 从头再翻一次，反而像 bug。这个页面本次加载不需要入场动画了。
+      const vt = event.viewTransition
+      // 只有真的能配对上标题（首页 → 文章）才启用隐藏/入场。
+      // 从标签页进文章、进「关于」这类普通页时，标题匹配失败，
+      // 必须把提前加的隐藏类撤掉，否则正文会一直藏到 reveal。
+      if (!nameIncoming()) {
         clearNames()
-      })
+        const finishedNoop = vt.finished
+        if (finishedNoop) finishedNoop.catch(() => {}).finally(() => clearNames())
+        else setTimeout(clearNames, 1500)
+        return
+      }
+      root.classList.add('vt-shared')
+      root.classList.add('vt-title-mode')
+      root.classList.add('vt-solid')
+
+      let revealed = false
+      const reveal = () => {
+        if (revealed) return
+        revealed = true
+        clearTimeout(timer)
+        root.classList.remove('vt-title-live-hide')
+        root.classList.remove('vt-title-mode')
+        root.classList.remove('vt-solid')
+        root.classList.add('vt-reveal')
+      }
+
+      let timer = 0
+      // ready 表示快照已经拍好：此时藏掉实时标题，飞行中只看到共享快照；
+      // 并提前启动内容入场，让它和标题落位一起收尾，而不是等 finished 再开始。
+      if (vt.ready) {
+        vt.ready.then(() => {
+          root.classList.add('vt-title-live-hide')
+          timer = setTimeout(reveal, Math.max(0, TITLE_MS - CONTENT_LEAD_MS))
+        }).catch(() => {})
+      }
+
+      const finished = vt.finished
+      if (finished) {
+        finished.catch(() => {}).finally(() => {
+          clearNames()
+          reveal()
+        })
+      } else {
+        setTimeout(() => {
+          clearNames()
+          reveal()
+        }, TITLE_MS + 400)
+      }
     })
   })()
 </script>

@@ -11,8 +11,8 @@
  *
  * 1) 首页随机一言：从 hitokoto 取一句随机句子，带打字机效果写入 .home-subtitle
  * 2) 雪花特效：同目录的 snow.js（Canvas 实现），由 js.Build 内联进同一份产物
- * 3) 正文懒加载图片骨架：图片加载完成后给 .image-skeleton 加 is-loaded，
- *    让盖在图片上方的占位动画淡出
+ * 3) 正文懒加载图片骨架：加载完成后先加 is-loaded 淡出，淡出结束再加
+ *    is-skeleton-done 停掉 shimmer（见同名函数里的注释）
  * 4) 首页 Hero 背景图骨架：用同 URL 的 Image 探针等背景图加载完成，
  *    给 .home-profile 加 is-hero-loaded，让 ::after 骨架淡出
  * 5) 首页卡片鼠标跟随光斑：两层预渲染的径向渐变跟着指针走，外层明显滞后
@@ -69,7 +69,11 @@ const initHitokoto = async () => {
  * 3) 正文懒加载图片骨架
  *
  *    骨架是盖在图片上方的一层（custom.scss 第 10 节），加载期间挡住浏览器的
- *    渐进绘制；这里只负责在图片 load / error 后加 is-loaded，让骨架淡出。
+ *    渐进绘制；这里负责在图片 load / error 后分两步收掉它：
+ *      is-loaded        只淡出，shimmer 继续跑（CSS 里刻意不在这里停动画）
+ *      is-skeleton-done 淡出结束后（550ms）才加，停动画 + visibility: hidden
+ *    合成一步会在淡出的半秒里把 shimmer 冻在当前帧，看起来就是"光条卡住"
+ *    （2026-11-12 用户反馈）。
  *
  *    ⚠️ 不要改回“隐藏 img、再淡入 img”的写法：慢网下浏览器会先画出图片的
  *       部分内容，JS 还没把 img 压到 0 就会从骨架上面露出来（2026-10-31 实测）。
@@ -77,12 +81,17 @@ const initHitokoto = async () => {
  *       complete 也包括“已经失败”（naturalWidth === 0）：失败图不会再触发 error，
  *       所以这里表示“无需继续等待”，让浏览器显示失败状态，而不是永久盖着骨架。
  */
+const SKELETON_FADE_MS = 550 // 正文骨架 .45s、Hero 骨架 .5s，取更长的再加余量
+
 const initImageSkeletons = () => {
   document.querySelectorAll('.image-skeleton').forEach((box) => {
     const img = box.querySelector('img')
     if (!img) return
 
-    const done = () => box.classList.add('is-loaded')
+    const done = () => {
+      box.classList.add('is-loaded')
+      setTimeout(() => box.classList.add('is-skeleton-done'), SKELETON_FADE_MS)
+    }
 
     // complete 表示“已经不用等”（成功或失败都算）；失败图不会再触发 error，
     // 所以不能只认 naturalWidth > 0，否则骨架会永久保留。
@@ -106,7 +115,11 @@ const initHeroSkeleton = () => {
   const match = bg.match(/url\(["']?([^"')]*hero\.webp[^"')]*)["']?\)/)
   if (!match) return
 
-  const done = () => hero.classList.add('is-hero-loaded')
+  // 与正文图骨架同样的两步：先淡出，等 shimmer 跑完这 0.5s 再停（见第 10 节）
+  const done = () => {
+    hero.classList.add('is-hero-loaded')
+    setTimeout(() => hero.classList.add('is-hero-done'), SKELETON_FADE_MS)
+  }
   const probe = new Image()
   probe.onload = done
   probe.onerror = done
