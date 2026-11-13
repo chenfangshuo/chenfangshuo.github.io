@@ -223,6 +223,23 @@ let raf = 0
 let last = 0
 let running = false
 
+// -----------------------------------------------------------------------------
+// 阵风（关于页 Celeste 彩蛋用）
+//
+// 和鼠标风不同，这是一股**可叠加**的全局风，strength 可以为负（负 = 从右往左）。
+// 包络和 demo 一致：0 → 0.3s ease-in-out 加速到峰值 → 保持 holdMs → 0.2s 淡出。
+// 不是瞬间切换，所以雪花是"慢慢被拉成横线"，不是一帧横飞。
+// gustSpeed 是当前实际风速，trail 的粗细/长度也读它；正常状态恒为 0。
+// -----------------------------------------------------------------------------
+const GUST_RAMP = 0.3
+const GUST_DECAY = 0.2
+let gustSpeed = 0
+let gustPeak = 0
+let gustStart = 0
+let gustHoldUntil = 0
+
+const easeInOut = (x) => x < .5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2
+
 const mqlReduce = window.matchMedia('(prefers-reduced-motion: reduce)')
 const mqlDark = window.matchMedia('(prefers-color-scheme: dark)')
 
@@ -584,7 +601,22 @@ const frame = (now) => {
   // 风的强度与"边缘衰减节奏"会在鼠标移动时错拍（实测对比页里能看出来）。
   // 用 dt 推进，所以 30/60/120Hz 手感一致；dt 已被夹在 [0, MAX_DT]。
   smoothNx += (mouseNx - smoothNx) * (1 - Math.exp(-dt / MOUSE_TAU))
-  const wind = smoothNx * MOUSE_WIND * SPEED
+  // 阵风包络：0 → 0.3s 到峰值 → 保持 → 0.2s 淡出。
+  // 用 performance.now() 的时间戳算，和雪花物理共用同一帧时钟。
+  const gT = (now - gustStart) / 1000
+  let gustWant = 0
+  if (gT >= 0) {
+    if (gT < GUST_RAMP) {
+      gustWant = gustPeak * easeInOut(gT / GUST_RAMP)
+    } else if (now < gustHoldUntil) {
+      gustWant = gustPeak
+    } else {
+      const gD = (now - gustHoldUntil) / 1000
+      gustWant = gD < GUST_DECAY ? gustPeak * (1 - easeInOut(gD / GUST_DECAY)) : 0
+    }
+  }
+  gustSpeed += (gustWant - gustSpeed) * Math.min(1, dt * 20)
+  const wind = smoothNx * MOUSE_WIND * SPEED + gustSpeed
   const taper = 1 - Math.abs(smoothNx)
 
   for (let i = 0; i < particles.length; i++) {
@@ -623,6 +655,12 @@ const frame = (now) => {
     // ---- 正常下落 ----
     p.x += (p.drift * taper + wind) * dt
     p.y += p.vy * dt
+
+    // 横向环绕放在落地判断**之前**：强阵风可能在同一帧把雪花推出侧边又送到底边。
+    // 先环绕，它才能在另一侧落地；否则会留在屏外融化，边缘雪量被慢慢掏空。
+    // 放在这里也保证后面的拖尾/补画用的是环绕后的 x，不会拉出一条横跨全屏的线。
+    if (p.x < -p.r) p.x = W + p.r
+    else if (p.x > W + p.r) p.x = -p.r
 
     const sy = p.y - top // 屏幕坐标
 
@@ -667,12 +705,29 @@ const frame = (now) => {
       p.x = Math.random() * W
     }
 
-    if (p.x < -p.r) p.x = W + p.r
-    else if (p.x > W + p.r) p.x = -p.r
-
     if (sy > -p.r && sy < H + p.r) { // 屏幕外不画 —— 这是"铺满整篇文档"不花绘制成本的原因
       ctx.globalAlpha = p.alpha
       ctx.drawImage(sprite, p.x - p.r, sy - p.r, p.r * 2, p.r * 2)
+
+      // 阵风拖尾（index7 的细圆头版本）：圆点始终保留，风越大线越长。
+      // gustSpeed 可正可负：负 = 风从右往左，拖尾方向跟着反。
+      // 只在正常下落分支画 —— 融化中的雪钉在地面上，拖尾会像一条挂在地上的线。
+      const gAbs = Math.abs(gustSpeed)
+      if (gAbs > 5) {
+        const k = Math.min(1, gAbs / 600)
+        const len = Math.min(48, gAbs * .045)
+        const dir = gustSpeed < 0 ? -1 : 1
+        const slope = p.vy / Math.max(300, gAbs)
+        ctx.globalAlpha = p.alpha * .6 * k
+        // spriteRgb 是 "r, g, b"，不能直接当 fillStyle 用。
+        ctx.strokeStyle = `rgb(${spriteRgb})`
+        ctx.lineWidth = p.r * 1.1
+        ctx.lineCap = 'round'
+        ctx.beginPath()
+        ctx.moveTo(p.x - dir * len, sy - len * slope)
+        ctx.lineTo(p.x, sy)
+        ctx.stroke()
+      }
     }
   }
   ctx.globalAlpha = 1
@@ -796,6 +851,15 @@ const onReduceChange = ({ matches }) => {
   else initSnow()
 }
 
+// 彩蛋触发的阵风。strength 可负（负 = 从右往左）；holdMs 是峰值保持时长，
+// 不含前面的 0.3s 加速和后面的 0.2s 淡出。没有 canvas 时调用也无害，
+// 只是没人消费这个状态。
+const gust = (strength, holdMs) => {
+  gustPeak = strength
+  gustStart = performance.now()
+  gustHoldUntil = gustStart + holdMs
+}
+
 const teardown = () => {
   stop()
   window.removeEventListener('mousemove', onMouse)
@@ -811,6 +875,10 @@ const teardown = () => {
   canvas && canvas.remove()
   canvas = ctx = sprite = undefined
   particles = []
+  gustSpeed = 0
+  gustPeak = 0
+  gustStart = 0
+  gustHoldUntil = 0
   window.fixitSnow = undefined
 }
 
@@ -864,6 +932,11 @@ export const initSnow = () => {
   // 平滑值是后加的第二个状态：漏掉它等于把同一个坑重演一遍（开场先被旧的平滑风吹一会儿）。
   mouseNx = 0
   smoothNx = 0
+  // 阵风状态同理：减少动效切回来会重开场，别让上一股风继续吹。
+  gustSpeed = 0
+  gustPeak = 0
+  gustStart = 0
+  gustHoldUntil = 0
   docH = PAGE_ANCHORED ? Math.max(H, document.documentElement.scrollHeight) : H
   groundY = PAGE_ANCHORED ? Math.min(docH, scrollY + H) : H // 一上来地面就贴着屏幕底边
   // 首次铺场拿不到精灵贴图就整场放弃。**不能照抄上面主画布的收尾**：那里本来就没有有效的
@@ -914,6 +987,8 @@ export const initSnow = () => {
       rgb: spriteRgb, count: particles.length, W, H, docH, scrollY, dpr, running,
       melting: particles.reduce((n, p) => n + (p.melt >= 0 ? 1 : 0), 0),
       groundY,
+      // 阵风的实际风速与常量：验证脚本从 debug() 取，不硬编码。
+      gust: gustSpeed, gustPeak, GUST_RAMP, GUST_DECAY,
       // 融化线在屏幕上的位置 —— 它**恒等于 H**：groundY = min(docH, scrollY + H)，而
       // scrollY + H ≤ scrollHeight ≤ docH，相减之后永远是 H（只有 docH 还是陈旧值的那一瞬间
       // 例外）。原注释写成"负 = 在屏幕上方；> H = 在屏幕下方（向上滚时就是这种）"，那是更早一版
@@ -930,5 +1005,6 @@ export const initSnow = () => {
     start,
     stop,
     teardown,
+    gust,
   }
 }

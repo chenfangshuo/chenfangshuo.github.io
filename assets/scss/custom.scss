@@ -1333,3 +1333,199 @@ html.vt-theme::view-transition-new(root) {
 ///                         且针对 Fluid 的 lazyload 类名；FixIt 用原生
 ///                         loading="lazy"，不需要这套模糊过渡。
 /// =============================================================================
+
+// -----------------------------------------------------------------------------
+// 15. 关于页 Celeste 彩蛋（assets/js/celeste.js）
+//
+//    点击「Ta很懒，什么都没有留下」后：文字逐字翻转，雪被左风拉成横线，
+//    Madeline 在页脚线上跑四幕。sprite 在 static/images/celeste-act{1..4}.png，
+//    由 JS 预加载；这里只负责尺寸、定位、配色和两段 CSS 精灵动画（第 1/2 幕）。
+//
+//    ⚠️ footer 主题自己已有 ::before 1px 分隔线（core/layouts/_footer.scss），
+//       这里不要再画一条；Madeline 的 bottom:100% 正好落在线上。
+//    ⚠️ overflow-x: clip 是必须的：act3/4 的 transform 会超出视口，站点 :root 是
+//       overflow:auto，不裁就会在动画期间冒出横向滚动条。不能用 overflow: hidden —
+//       hidden + overflow-y:visible 会把 visible 计算成 auto，把线上的角色一起裁掉。
+//    ⚠️ 下面这些 --celeste-fx-* 是 canvas 直接读取的颜色，**必须是普通颜色值**。
+//       getComputedStyle().getPropertyValue() 不会替你解析 light-dark()，canvas
+//       拿到 "light-dark(...)" 会静默忽略。按 data-theme-mode 分档，再用媒体查询兜 auto。
+// -----------------------------------------------------------------------------
+footer.celeste-stage {
+  position: relative;
+  overflow-x: clip;
+  overflow-y: visible;
+}
+
+// 颜色分档：:root 浅色；显式 dark 覆盖；auto 且系统深色时用媒体查询。
+:root {
+  --celeste-fx-line: #4f7a9a;
+  --celeste-fx-cloud: rgba(40, 190, 150, .45);
+  --celeste-fx-ring: rgba(40, 160, 110, .7);
+  --celeste-fx-dust: rgba(90, 110, 135, .6);
+  --celeste-shadow: rgba(23, 33, 51, .22);
+}
+
+:root[data-theme-mode='dark'] {
+  --celeste-fx-line: #fff;
+  --celeste-fx-cloud: rgba(70, 230, 190, .55);
+  --celeste-fx-ring: rgba(215, 255, 225, .9);
+  --celeste-fx-dust: rgba(255, 255, 255, .9);
+  --celeste-shadow: rgba(0, 0, 0, .45);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme-mode='light']) {
+    --celeste-fx-line: #fff;
+    --celeste-fx-cloud: rgba(70, 230, 190, .55);
+    --celeste-fx-ring: rgba(215, 255, 225, .9);
+    --celeste-fx-dust: rgba(255, 255, 255, .9);
+    --celeste-shadow: rgba(0, 0, 0, .45);
+  }
+}
+
+.celeste-secret {
+  display: inline-block;
+  perspective: 600px;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+// 第 6 节 .page.single .content p 的特异性更高，这里显式压过它。
+.page.single .content p.celeste-secret {
+  margin: 0;
+}
+
+.celeste-secret.is-ready {
+  cursor: pointer;
+  user-select: none;
+}
+
+.celeste-secret:focus-visible {
+  outline: 2px dashed var(--fi-primary-color, #e7624c);
+  outline-offset: 6px;
+  border-radius: 4px;
+}
+
+body.celeste-busy .celeste-secret.is-ready {
+  cursor: progress;
+}
+
+.celeste-secret .ch {
+  display: inline-block;
+  transform-origin: 50% 60%;
+  will-change: transform;
+  backface-visibility: visible;
+}
+
+// 角色：绝对定位在 footer 顶边（也就是那条 1px 线上）。
+// 不写 scaleX(-1)：四套 sprite 的朝向已经烘进图里，镜像会把方向和动作都翻反。
+.celeste-madeline {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  width: 128px;
+  height: 128px;
+  pointer-events: none;
+  z-index: 6;
+  will-change: transform;
+}
+
+// 脚底接触页脚线的一小片影子：精灵上下浮动时影子留在线上，看起来还踩着地。
+.celeste-madeline::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -2px;
+  width: 30px;
+  height: 5px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, .42), transparent);
+  opacity: .55;
+  pointer-events: none;
+}
+
+.celeste-madeline-flip {
+  width: 100%;
+  height: 100%;
+}
+
+.celeste-madeline-inner {
+  width: 100%;
+  height: 100%;
+  background-image: url("/images/celeste-act1.png?v=1");
+  background-repeat: no-repeat;
+  background-size: 1664px 128px; // 13 帧 × 128
+  image-rendering: pixelated;
+  animation: celeste-act1 .48s steps(13) infinite;
+  transform-origin: 50% 100%;
+  filter: drop-shadow(0 6px 10px var(--celeste-shadow));
+}
+
+.celeste-madeline.is-act2 .celeste-madeline-inner {
+  background-image: url("/images/celeste-act2.png?v=1");
+  background-size: 2304px 128px; // 18 帧 × 128
+  animation: celeste-act2 1.5s steps(18) infinite;
+}
+
+.celeste-madeline.is-dash {
+  width: 112px;
+  height: 176px;
+}
+
+// 第 3/4 幕是 60fps 源帧：位置和帧号由 JS 的同一个 performance.now() 时钟推进，
+// 这里只给 sheet 尺寸，不能挂 CSS animation。
+.celeste-madeline.is-act3loop .celeste-madeline-inner {
+  background-image: url("/images/celeste-act3.png?v=1");
+  background-size: 5824px 176px; // 52 帧 × 112
+  animation: none;
+  filter: none;
+}
+
+.celeste-madeline.is-act4loop .celeste-madeline-inner {
+  background-image: url("/images/celeste-act4.png?v=1");
+  background-size: 6160px 176px; // 55 帧 × 112
+  animation: none;
+  filter: none;
+}
+
+.celeste-madeline.is-act3loop::after,
+.celeste-madeline.is-act4loop::after {
+  width: 28px;
+  height: 4px;
+  bottom: 0;
+  border-radius: 0;
+  background: var(--celeste-fx-dust);
+  opacity: .18;
+}
+
+// 第 3/4 幕的像素特效层：和角色共用 footer 上的坐标原点，高度 220px 足够装下
+// 起跳最高点和落地尘土。宽度由 JS 写成舞台宽度，CSS 这里只对齐 100%。
+.celeste-fx {
+  position: absolute;
+  bottom: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.celeste-dash-fx {
+  left: 0;
+  width: 100%;
+  height: 220px;
+  image-rendering: pixelated;
+}
+
+@keyframes celeste-act1 {
+  to { background-position: -1664px 0; }
+}
+
+@keyframes celeste-act2 {
+  to { background-position: -2304px 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .celeste-madeline,
+  .celeste-fx {
+    display: none;
+  }
+}

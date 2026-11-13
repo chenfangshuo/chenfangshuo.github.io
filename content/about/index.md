@@ -6,7 +6,7 @@ comment: false
 toc: false
 ---
 
-Ta很懒，什么都没有留下
+<p class="celeste-secret">Ta很懒，什么都没有留下</p>
 
 <!--
   说明（迁移自旧 Hexo 站）：

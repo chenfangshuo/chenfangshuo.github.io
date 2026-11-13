@@ -16,9 +16,11 @@
  * 4) 首页 Hero 背景图骨架：用同 URL 的 Image 探针等背景图加载完成，
  *    给 .home-profile 加 is-hero-loaded，让 ::after 骨架淡出
  * 5) 首页卡片鼠标跟随光斑：两层预渲染的径向渐变跟着指针走，外层明显滞后
+ * 6) 关于页 Celeste 彩蛋：点击那句「Ta很懒…」触发四幕动画（celeste.js）
  */
 
 import { initSnow } from './snow.js'
+import { initCelesteEgg } from './celeste.js'
 
 const { fixit } = window
 
@@ -491,6 +493,8 @@ const init = () => {
   initThemeReveal()
   initHitokoto()
   initSnow()
+  // 雪花先建场：关于页点击时 fixitSnow 已就绪，gust 才能把雪吹起来。
+  initCelesteEgg()
   console.log('custom.js loaded', fixit && fixit.version)
 }
 
