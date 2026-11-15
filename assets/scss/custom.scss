@@ -1363,6 +1363,7 @@ footer.celeste-stage {
   --celeste-fx-ring: rgba(40, 160, 110, .7);
   --celeste-fx-dust: rgba(90, 110, 135, .6);
   --celeste-shadow: rgba(23, 33, 51, .22);
+  --celeste-hover: #c93e28;
 }
 
 :root[data-theme-mode='dark'] {
@@ -1371,6 +1372,7 @@ footer.celeste-stage {
   --celeste-fx-ring: rgba(215, 255, 225, .9);
   --celeste-fx-dust: rgba(255, 255, 255, .9);
   --celeste-shadow: rgba(0, 0, 0, .45);
+  --celeste-hover: #e7624c;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -1380,6 +1382,7 @@ footer.celeste-stage {
     --celeste-fx-ring: rgba(215, 255, 225, .9);
     --celeste-fx-dust: rgba(255, 255, 255, .9);
     --celeste-shadow: rgba(0, 0, 0, .45);
+    --celeste-hover: #e7624c;
   }
 }
 
@@ -1398,6 +1401,14 @@ footer.celeste-stage {
 .celeste-secret.is-ready {
   cursor: pointer;
   user-select: none;
+  border-bottom: 1px dashed color-mix(in srgb, currentColor 30%, transparent);
+  padding-bottom: 2px;
+  transition: color .25s ease, border-color .25s ease;
+}
+
+.celeste-secret.is-ready:hover {
+  color: var(--celeste-hover);
+  border-bottom-color: color-mix(in srgb, var(--celeste-hover) 60%, transparent);
 }
 
 .celeste-secret:focus-visible {
@@ -1408,6 +1419,11 @@ footer.celeste-stage {
 
 body.celeste-busy .celeste-secret.is-ready {
   cursor: progress;
+  // lockUI() 先于 spinText() 加 busy；立即还原继承色且禁用过渡，
+  // 防止悬停态的 #e7624c 盖住 spinText() 采样的 base，导致翻字闪红消失。
+  color: inherit;
+  border-bottom-color: color-mix(in srgb, currentColor 30%, transparent);
+  transition: none;
 }
 
 .celeste-secret .ch {
@@ -1524,6 +1540,10 @@ body.celeste-busy .celeste-secret.is-ready {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .celeste-secret.is-ready {
+    transition: none;
+  }
+
   .celeste-madeline,
   .celeste-fx {
     display: none;
